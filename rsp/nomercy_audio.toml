@@ -1,0 +1,23 @@
+# RSPRecomp config for No Mercy's AUDIO microcode — OFFSETS ARE TODO(recon).
+# Expectation (WM2000 is the reference sibling): the newer-AKI audio revision that
+# Revenge and WM2000 share (NOT WT's stock aspMain). Recon = byte-search nomercy.z64
+# for Revenge/WM2000's 0xC54-byte ucode text (WM2000 had it at ROM 0x39510, Revenge
+# at 0x2C910); if byte-identical, everything below transfers verbatim except the two
+# offsets. Same 12-bit-PC jump-table gotcha (see Revenge's rsp/README.md: dispatch-
+# table entries store 12-bit IMEM PCs, e.g. entry 14 stored 0x02B0 = recompiler
+# 0x12B0); find the dispatch table in the ucode DATA (WM2000: ROM 0x4A8F0).
+# text_address 0x04001080 = where rspboot places task ucode in IMEM.
+# Run from repo root:  .\RSPRecomp.exe rsp\nomercy_audio.toml  (paths relative to rsp/).
+text_offset = 0x0        # TODO(recon): ROM offset of the audio ucode text
+text_size = 0xC54        # expected if the ucode matches Revenge/WM2000's — verify
+text_address = 0x04001080
+rom_file_path = "../nomercy.z64"
+output_file_path = "nomercy_audio.cpp"
+output_function_name = "nomercy_audio_ucode"
+
+# Expected indirect-branch target set if the ucode is byte-identical to
+# Revenge/WM2000's (verify against the dispatch table found in this ROM):
+extra_indirect_branch_targets = [
+	0x10EC, 0x139C, 0x119C, 0x1A64, 0x11C8, 0x17EC, 0x1208,
+	0x127C, 0x1348, 0x1248, 0x1C84, 0x12D4, 0x12B0, 0x1384
+]

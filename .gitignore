@@ -1,0 +1,86 @@
+# Build output
+build/
+build-cmake/
+build-coretest/
+build-msvc/
+build-*/
+out/
+*.obj
+*.o
+*.d
+
+# Recompiler output (regenerated from the ROM)
+RecompiledFuncs/*.c
+RecompiledFuncs/*.cpp
+RecompiledFuncs/*.h
+RecompiledFuncs/*.inl
+RecompiledPatches/*.c
+RecompiledPatches/*.cpp
+RecompiledPatches/*.h
+RecompiledPatches/*.inl
+
+# Patch build artifacts
+patches/*.elf
+patches/*.bin
+patches/*.map
+patches/*.o
+patches/*.d
+
+# RSP recompiler output
+rsp/*.cpp
+
+# Recompiler binaries copied into the repo + their MinGW runtime DLLs
+N64Recomp
+N64Recomp.exe
+RSPRecomp
+RSPRecomp.exe
+file_to_c
+file_to_c.exe
+*.dll
+
+# ROMs and assets — NEVER commit these
+*.z64
+*.n64
+*.v64
+nomercy.z64
+
+# Disassembly project — generated/large; keep configs + symbol files only
+disasm/.venv/
+disasm/asm/
+disasm/assets/
+disasm/build/
+disasm/nomercy.z64
+disasm/*.cache
+disasm/.splat_cache*
+disasm/undefined_funcs_auto.txt
+disasm/undefined_syms_auto.txt
+disasm/nomercy.ld
+disasm/nomercy.d
+
+# OS / editor
+.vs/
+.vscode/
+*.user
+Thumbs.db
+.DS_Store
+
+# Agent instructions + planning docs — local-only, never publish
+CLAUDE.md
+docs/*-plan.md
+
+# Claude Code local (per-machine) settings
+.claude/settings.local.json
+
+# Machine-local toolchain overrides
+local-config.cmake
+
+# bring-up boot logs + screenshots (local diagnostics)
+boot*.log
+boot*.err.log
+probe*.log
+probe*.err.log
+recomp-out.txt
+boot*_stacks*.txt
+boot-screenshot.png
+shot-*.png
+tools/*.exe

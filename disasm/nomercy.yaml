@@ -1,0 +1,80 @@
+# splat config for WWF No Mercy (USA, Rev 1) — SEGMENTS ARE PLACEHOLDERS until recon.
+# Expected architecture (WM2000 is the reference sibling — same AKI team, direct
+# sequel): entry stub at rom 0x1000 (vram 0x80000400) clearing bss then jumping to
+# game_main; fixed-segment CPU code, then rspboot + audio ucode (likely the newer AKI
+# revision, byte-identical to Revenge/WM2000's) + gfx ucode + the 9-word overlay
+# descriptor table; multiple overlays across shared vram swap slots (WM2000: FOUR
+# overlays, TWO slots); assets fill the rest of the 32 MB ROM.
+# Recon steps (adapt WM2000's tools/recon.py..recon4.py, which point at the Wm2k
+# repo as their fingerprint source): entry-stub decode -> jr-ra density scan for the
+# code/data boundary -> ucode byte-search -> descriptor-table hunt -> byte-exact
+# section bounds from the descriptors. Fill the segments below from that evidence.
+name: WWF No Mercy (USA) (Rev 1)
+sha1: 91cee3d096f4a76644d8b35b9aead6448909abd1
+options:
+  basename: nomercy
+  target_path: nomercy.z64
+  elf_path: build/nomercy.elf
+  base_path: .
+  platform: n64
+  compiler: IDO
+
+  asm_path: asm
+  data_path: asm/data
+  ld_script_path: nomercy.ld
+  ld_dependencies: True
+
+  find_file_boundaries: True
+  header_encoding: ASCII
+
+  o_as_suffix: True
+  use_legacy_include_asm: False
+  mips_abi_float_regs: o32
+
+  symbol_addrs_path:
+    - symbol_addrs.txt
+  reloc_addrs_path:
+    - reloc_addrs.txt
+
+  undefined_funcs_auto_path: undefined_funcs_auto.txt
+  undefined_syms_auto_path: undefined_syms_auto.txt
+
+  libultra_symbols: True
+  hardware_regs: True
+
+  rodata_string_guesser_level: 2
+  data_string_guesser_level: 2
+
+segments:
+  - name: header
+    type: header
+    start: 0x0
+
+  - name: ipl3
+    type: bin
+    start: 0x40
+
+  - name: entry
+    type: code
+    start: 0x1000
+    vram: 0x80000400
+    subsegments:
+      - [0x1000, hasm]
+
+  # TODO(recon): everything below is a placeholder. Verify game_main's vram from the
+  # entry stub, find the code/data boundary, the ucodes, and the overlay descriptor
+  # table, then replace this with byte-exact segments (WM2000's wm2k.yaml is the
+  # worked example, including the cold-code-pocket / island hazards to watch for).
+  - name: main
+    type: code
+    start: 0x1050
+    vram: 0x80000450
+    follows_vram: entry
+    subsegments:
+      - [0x1050, asm]
+
+  - name: assets
+    type: bin
+    start: 0x100000   # TODO(recon): placeholder boundary
+
+  - [0x2000000]  # ROM size confirmed: 32 MB exactly (same as WM2000)

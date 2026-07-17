@@ -117,6 +117,11 @@ target_sources(NoMercyRecompiled PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/logo_bytes.
 if (WIN32)
     enable_language(RC)
     target_sources(NoMercyRecompiled PRIVATE ${CMAKE_SOURCE_DIR}/icons/app.rc)
+    # The RC compiler doesn't emit depfiles for referenced resources, so without this
+    # an app.ico change leaves a stale app.rc.res and the exe keeps the OLD icon
+    # (bit us when replacing the bootstrap's Wm2k-derived icon).
+    set_property(SOURCE ${CMAKE_SOURCE_DIR}/icons/app.rc PROPERTY
+        OBJECT_DEPENDS ${CMAKE_SOURCE_DIR}/icons/app.ico)
 endif()
 set(SOURCES
     ${CMAKE_SOURCE_DIR}/src/main/main.cpp

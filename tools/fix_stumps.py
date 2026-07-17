@@ -56,6 +56,20 @@ def end_reachable(body):
         depth += s.count('{') - s.count('}')
     return reachable
 
+# Section name -> its index in dump.toml order (static_<idx>_* naming).
+sec_name2idx = {s: i for i, (_, s) in enumerate(sec_positions)}
+
+# Pre-pass: index every generated RECOMP_FUNC name so stumps can chain into
+# recompiler-synthesized statics too. boot9 (session 3) crash class: ovl_c's
+# static_5_8011DA38 (IDO shared-tail mid-entry) truncated at 0x8011DC94 where
+# the successor is ANOTHER static (static_5_8011DC94) -- by_sec_vram only
+# indexes dump.toml, so the old code silently skipped it and every path-B menu
+# widget draw returned with s-regs unrestored (s2=0xA0 => the 0xD2 fault).
+all_gen_names = set()
+for path in sorted(glob.glob(os.path.join(ROOT, 'RecompiledFuncs', 'funcs_*.c'))):
+    src = open(path, 'rb').read().decode('utf-8', errors='replace')
+    all_gen_names.update(re.findall(r'RECOMP_FUNC void (\w+)\(uint8_t\* rdram', src))
+
 fixed = 0
 for path in sorted(glob.glob(os.path.join(ROOT, 'RecompiledFuncs', 'funcs_*.c'))):
     src = open(path, 'rb').read().decode('utf-8', errors='replace')
@@ -84,6 +98,15 @@ for path in sorted(glob.glob(os.path.join(ROOT, 'RecompiledFuncs', 'funcs_*.c'))
         nxt = int(addrs[-1], 16) + 4
         succ = by_sec_vram.get((sec, nxt))
         if succ is None:
+            # Successor may be a recompiler-synthesized static in the same
+            # section (IDO shared-tail epilogues reached only via j).
+            idx = sec_name2idx.get(sec)
+            cand = 'static_%d_%08X' % (idx, nxt) if idx is not None else None
+            if cand and cand in all_gen_names:
+                succ = cand
+        if succ is None:
+            print('WARN %s (%s): reachable fall-off at 0x%08X with NO same-section '
+                  'successor -- unchained stump, will corrupt s-regs if executed' % (name, sec, nxt))
             continue
         patch = ('\n    /* [nomercy fix_stumps] N64Recomp truncated this overlapping function at the next\n'
                  '       same-section symbol without the fall-through; chain it. */\n'

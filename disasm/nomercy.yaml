@@ -1,14 +1,18 @@
-# splat config for WWF No Mercy (USA, Rev 1) — SEGMENTS ARE PLACEHOLDERS until recon.
-# Expected architecture (WM2000 is the reference sibling — same AKI team, direct
-# sequel): entry stub at rom 0x1000 (vram 0x80000400) clearing bss then jumping to
-# game_main; fixed-segment CPU code, then rspboot + audio ucode (likely the newer AKI
-# revision, byte-identical to Revenge/WM2000's) + gfx ucode + the 9-word overlay
-# descriptor table; multiple overlays across shared vram swap slots (WM2000: FOUR
-# overlays, TWO slots); assets fill the rest of the 32 MB ROM.
-# Recon steps (adapt WM2000's tools/recon.py..recon4.py, which point at the Wm2k
-# repo as their fingerprint source): entry-stub decode -> jr-ra density scan for the
-# code/data boundary -> ucode byte-search -> descriptor-table hunt -> byte-exact
-# section bounds from the descriptors. Fill the segments below from that evidence.
+# splat config for WWF No Mercy (USA, Rev 1) — recon 2026-07-14 (tools/nm_recon*.py):
+#   - entry stub (rom 0x1000): clears bss 0x80056670 +0x672F0 (to 0x800BD960),
+#     sp 0x8009FDE0, jumps to game_main 0x80000460 (= rom 0x1060, SAME VRAM AS WM2000)
+#   - fixed-segment code ends 0x40F74 (last jr $ra 0x40F6C); rspboot text begins
+#     0x40F80; audio ucode text at 0x41050 +0xC54 — BYTE-IDENTICAL to Revenge/WM2000's
+#     newer-AKI revision (dispatch table at 0x55920, bit-identical to WM2000's) — see
+#     rsp/nomercy_audio.toml. Gfx ucode follows the audio text (zeros then text at
+#     ~0x41CB0); NOT byte-identical to WM2000's (revision drift, 199/256 blocks match)
+#     — RT64's GBI database must match it at boot; watch for an unknown-ucode failure.
+#   - overlay descriptor table at rom 0x539A0 (five 9-word entries, zero-terminated):
+#     FIVE overlays across TWO vram swap slots — one more overlay than WM2000, same
+#     architecture. Bounds below are byte-exact from the descriptors.
+#     Slot 0x800D9960: ovl_a + ovl_e; slot 0x80106760: ovl_b/ovl_c/ovl_d.
+#     ovl_a's bss ends exactly at 0x80106760 (a+{b,c,d} coexist, WM2000's scheme);
+#     ovl_e is the big standalone image spanning both slots (WM2000's ovl_d analog).
 name: WWF No Mercy (USA) (Rev 1)
 sha1: 91cee3d096f4a76644d8b35b9aead6448909abd1
 options:
@@ -61,10 +65,6 @@ segments:
     subsegments:
       - [0x1000, hasm]
 
-  # TODO(recon): everything below is a placeholder. Verify game_main's vram from the
-  # entry stub, find the code/data boundary, the ucodes, and the overlay descriptor
-  # table, then replace this with byte-exact segments (WM2000's wm2k.yaml is the
-  # worked example, including the cold-code-pocket / island hazards to watch for).
   - name: main
     type: code
     start: 0x1050
@@ -72,9 +72,73 @@ segments:
     follows_vram: entry
     subsegments:
       - [0x1050, asm]
+      # 0x3D800-0x3DC00 is a low-instruction-validity window (nm_recon2) — kept as
+      # asm ON PURPOSE: junk data decoding as never-executed functions is safe, but
+      # real IDO cold-path fragments mapped as data recompile EMPTY and leak stack
+      # (WM2000's 0x3A1D8 disaster). Revisit only with evidence.
+      - [0x40F80, data]
+
+  # Swap slot 0x800D9960: ovl_a and ovl_e (ovl_e also overlaps slot 0x80106760 —
+  # it is the big standalone image, WM2000's ovl_d analog).
+  - name: ovl_a
+    type: code
+    start: 0x57310
+    vram: 0x800D9960
+    exclusive_ram_id: ovl_d9960
+    bss_size: 0x2F00
+    subsegments:
+      - [0x57310, asm]
+      - [0x702F0, data]
+      - { type: bss, vram: 0x80103860 }
+
+  # Swap slot 0x80106760: ovl_b, ovl_c, ovl_d; each can sit alongside ovl_a
+  # (ovl_a's bss ends exactly at 0x80106760).
+  - name: ovl_b
+    type: code
+    start: 0x81210
+    vram: 0x80106760
+    exclusive_ram_id: ovl_106760
+    bss_size: 0x394F0
+    subsegments:
+      - [0x81210, asm]
+      - [0x99680, data]
+      - { type: bss, vram: 0x801338E0 }
+
+  - name: ovl_c
+    type: code
+    start: 0xAE390
+    vram: 0x80106760
+    exclusive_ram_id: ovl_106760
+    bss_size: 0x63E0
+    subsegments:
+      - [0xAE390, asm]
+      - [0xEFB10, data]
+      - { type: bss, vram: 0x80155620 }
+
+  - name: ovl_d
+    type: code
+    start: 0xFD250
+    vram: 0x80106760
+    exclusive_ram_id: ovl_106760
+    bss_size: 0x1F940
+    subsegments:
+      - [0xFD250, asm]
+      - [0x13DBA0, data]
+      - { type: bss, vram: 0x8014E0F0 }
+
+  - name: ovl_e
+    type: code
+    start: 0x144BE0
+    vram: 0x800D9960
+    exclusive_ram_id: ovl_d9960
+    bss_size: 0x19B20
+    subsegments:
+      - [0x144BE0, asm]
+      - [0x1AF8F0, data]
+      - { type: bss, vram: 0x80151ED0 }
 
   - name: assets
     type: bin
-    start: 0x100000   # TODO(recon): placeholder boundary
+    start: 0x1BD150
 
   - [0x2000000]  # ROM size confirmed: 32 MB exactly (same as WM2000)

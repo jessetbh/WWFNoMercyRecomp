@@ -10,13 +10,15 @@ service ran OVL_B code on ovl_c data).
 Run after any re-split or symbol change, BEFORE regenerating; a finding means
 "add a mid-entry to syms/extra_funcs.txt for the listed overlay(s)".
 
-Co-residency model (descriptor table rom 0x48A80, session 6):
+Co-residency model (No Mercy descriptor table rom 0x539A0, nm_recon 2026-07-14):
   - main segments co-load with everything
-  - ovl_a <-> ovl_b and ovl_a <-> ovl_c are legal pairs
-  - ovl_d spans both slots: never co-resident with a/b/c
-  - ovl_b never with ovl_c (same slot)
-  - main_D0C2C is ovl_c's out-of-line island (co-resident iff ovl_c)
-  - main_70EF8 is ovl_a's hidden pocket (co-resident iff ovl_a)
+  - slot 0x800D9960 holds ovl_a; slot 0x80106760 holds ovl_b/ovl_c/ovl_d
+  - ovl_a <-> {ovl_b, ovl_c, ovl_d} are the legal pairs (ovl_a's bss ends
+    exactly at 0x80106760)
+  - ovl_e spans BOTH slots: never co-resident with any other overlay
+  - ovl_b/ovl_c/ovl_d never with each other (same slot)
+  - no pocket/island aliases discovered yet (Wm2k's main_D0C2C/main_70EF8
+    precedent — add to ALIAS if the bring-up finds any)
 """
 import re, os, sys, glob
 from collections import defaultdict
@@ -30,8 +32,8 @@ for m in re.finditer(r'\[\[section\]\]\nname = "(\w+)"\nrom = 0x[0-9A-Fa-f]+\n'
     sections.append((m.group(1), int(m.group(2), 16), int(m.group(3), 16)))
 
 # effective overlay identity for co-residency purposes
-ALIAS = {'main_D0C2C': 'ovl_c', 'main_70EF8': 'ovl_a'}
-OVERLAYS = {'ovl_a', 'ovl_b', 'ovl_c', 'ovl_d'}
+ALIAS = {}
+OVERLAYS = {'ovl_a', 'ovl_b', 'ovl_c', 'ovl_d', 'ovl_e'}
 
 def ident(sec):
     return ALIAS.get(sec, sec)
@@ -44,7 +46,9 @@ def coloadable(a, b):
     if a not in OVERLAYS or b not in OVERLAYS:
         return True  # main segments co-load with everything
     pair = frozenset((a, b))
-    return pair in (frozenset(('ovl_a', 'ovl_b')), frozenset(('ovl_a', 'ovl_c')))
+    return pair in (frozenset(('ovl_a', 'ovl_b')),
+                    frozenset(('ovl_a', 'ovl_c')),
+                    frozenset(('ovl_a', 'ovl_d')))
 
 # function name -> section; (section, vram) -> True
 sec_positions = [(m.start(), m.group(1)) for m in re.finditer(r'^name = "(\w+)"', dump, re.M)]

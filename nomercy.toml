@@ -21,19 +21,44 @@ trace_mode = false
 # fingerprint each onto the function WM2000 also stubs). WM2000's lesson stands:
 # NEVER stub osGetCount — it freezes the game clock and timed waits never complete.
 stubs = [
+    "func_80034310",
+    "func_800343C0",
+    "func_80034440",
+    "func_800344C0",
+    "func_80037D70",
+    "func_8003C760",
+    "func_8003CCA4",
+    "func_8003CCBC",
+    "func_8003CDDC",
+    "func_8003CF44",
+    "func_8003E260",
+    "func_8003E280",
+    "func_8003E290",
+    "func_8003E2B0",
+    "func_8003E2C0",
+    "func_8003E550",
+    "func_8003E5B0",
 ]
 
 ignored = [
+    # not in N64Recomp's built-in auto-ignore set (unlike osCartRomInit), but
+    # librecomp exports osDriveRomInit_recomp — route calls to the shim
+    # (recomp_api.cpp bridge); without this the recompiled copy duplicates the
+    # bridge symbol at link time (WM2000's exact arrangement).
+    "osDriveRomInit",
 ]
 
-# Idle-thread cooperative-yield fix: NOT yet applied. Every sister needed it (WT/
-# Revenge/WM2000/VPW64): after launching all threads the idle thread parks in a
-# backward-j busy spin that never yields under ultramodern's cooperative scheduler
-# (symptom: WCW_HEALTH_LOG ext backlog grows, del/s=0, vis/s=0). Find the spin during
-# bring-up (WM2000's was `jal func_80031280; j 0x800005A4` in func_800004D0) and
-# rewrite the backward j into `b .` (0x1000FFFF) so N64Recomp emits pause_self():
-#
-# [[patches.instruction]]
-# func = "func_XXXXXXXX"
-# vram = 0xXXXXXXXX
-# value = 0x1000FFFF
+# Idle-thread cooperative-yield fix, mirroring every sister's documented patch:
+# after launching all threads and dropping its own priority to 0 (osSetThreadPri
+# at 0x80000568), the main thread (func_800004D0, thread id=1 — SAME vram as
+# WM2000's) parks in `jal func_80036110; j 0x80000570` — a busy spin that never
+# yields under ultramodern's cooperative scheduler, starving message delivery
+# (boot2 2026-07-14: ext backlog +60/s, del/s=0, vis/s=0 — the exact predicted
+# signature). Rewriting the backward j at 0x80000578 into a self-branch
+# (`b .` = 0x1000FFFF) makes N64Recomp emit pause_self(), which drains external
+# messages and yields. (0x80000570 is an internal label only — not a separate
+# dump.toml/extra_funcs entry — so this single patch covers the executing copy.)
+[[patches.instruction]]
+func = "func_800004D0"
+vram = 0x80000578
+value = 0x1000FFFF

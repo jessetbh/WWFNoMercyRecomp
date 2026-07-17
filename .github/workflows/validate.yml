@@ -7,7 +7,7 @@
 # Deltas vs the sisters' workflows:
 #  - No Mercy (same AKI/IDO binary shape as its predecessor WM2000) REQUIRES the
 #    post-regen fixup pipeline after N64Recomp
-#    (fix_stumps/fix_switches/fix_backbranches/readd_hand_edits/
+#    (fix_stumps/fix_switches/fix_backbranches/fix_selfentry/readd_hand_edits/
 #    audit_coresidency) — each guards a silent-miscompile class; see BUILDING.md §4.
 #  - No Syms submodule (symbols are tracked in-repo under syms/), so the main
 #    checkout uses the default token.
@@ -100,6 +100,8 @@ jobs:
           python tools/fix_switches.py
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python tools/fix_backbranches.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python tools/fix_selfentry.py
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python tools/readd_hand_edits.py
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }

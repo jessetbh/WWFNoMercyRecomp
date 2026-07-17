@@ -16,15 +16,23 @@ sequel, so that project is this one's closest reference.
 
 ### **This repository and its releases do not contain game assets. The original game is required to build or run this project.**
 
-> **Status: pre-alpha bring-up.** The project skeleton, toolchain, and runtime stack
-> are in place; ROM reconnaissance and first boot are in progress. Nothing is
-> playable yet — this README describes the target the sister projects have already
-> reached.
+> **Status: beta.** The game boots, renders at high resolution, plays music and
+> sound effects, takes keyboard and gamepad input through the menus and matches,
+> rumbles, and the cartridge flash save persists automatically across sessions.
+> See [Known Issues](#known-issues) for what's still rough.
+
+<div align="center">
+  <img src="docs/screenshots/gameplay.png" width="640" alt="In-ring gameplay rendered at high resolution">
+  <br>
+  <img src="docs/screenshots/title.png" width="318" alt="Title screen">
+  <img src="docs/screenshots/wrestler-select.png" width="318" alt="Superstar select">
+</div>
 
 ## Table of Contents
 * [System Requirements](#system-requirements)
-* [Planned Features](#planned-features)
+* [Features](#features)
 * [FAQ](#faq)
+* [Known Issues](#known-issues)
 * [Building](#building)
 * [Libraries Used and Projects Referenced](#libraries-used-and-projects-referenced)
 * [Special Thanks](#special-thanks)
@@ -38,9 +46,7 @@ A GPU supporting Direct3D 12.0 (Shader Model 6) or Vulkan 1.2 is required. A CPU
 supporting the SSE4.1 instruction set is also required (Intel Core 2 Penryn series or
 AMD Bulldozer and newer).
 
-## Planned Features
-
-Everything the sister projects ship today:
+## Features
 
 * Plug and play — assets load directly from your ROM, no extraction step
 * Hardware-accelerated high-resolution rendering through RT64 with the original
@@ -49,7 +55,10 @@ Everything the sister projects ship today:
 * In-game config menus with full input rebinding for keyboard and controller
 * Default mappings tailored to the AKI control scheme (d-pad movement, analog taunts)
 * Flash cartridge save emulation with automatic persistence, plus rumble
-* High framerate support (frame interpolation) later, pending the family's
+
+## Planned Features
+
+* High framerate support (frame interpolation), pending the family's
   matrix-group work
 * Linux support
 * Mod support
@@ -93,6 +102,18 @@ in the same app folder.
 
 Yes — place a file named `portable.txt` in the same folder as the executable and
 saves, config files, and the stored ROM will be kept next to the executable instead.
+
+## Known Issues
+
+This is a beta. Known rough edges:
+
+* **Multi-controller sessions** are still being stabilized and can crash; single
+  controller (or keyboard) play is solid.
+* First launch may pause briefly while shaders compile for your GPU.
+* Only the USA Rev 1 ROM is accepted (see the FAQ) — other dumps are rejected at
+  intake by design.
+
+Please report anything else through the issue tracker.
 
 ## Building
 

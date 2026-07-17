@@ -100,6 +100,10 @@ python tools\fix_backbranches.py           # audits every function for branches
 #   outside its decoded span (N64Recomp silently reroutes them to a bogus local
 #   label). If it prints MISSING lines: add the printed extra_funcs entries,
 #   regenerate, and repeat until it reports 0 missing.
+python tools\fix_selfentry.py              # relocates misplaced self-entry branch
+#   labels: when a function branches to its own first instruction, N64Recomp emits
+#   the label AFTER the entry instruction, so looped iterations skip it (this caused
+#   the exploded-wrestler match-render bug — see docs history). Idempotent.
 python tools\readd_hand_edits.py           # re-applies documented in-place
 #   diagnostics to the generated C (they are wiped by every regen)
 python tools\audit_coresidency.py          # cross-overlay static-bind sweep;

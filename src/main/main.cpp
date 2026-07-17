@@ -890,7 +890,10 @@ int main(int argc, char** argv) {
                 // the rope-matrix hunt: the RIP alone landed in guMtxF2L (a leaf converter);
                 // the culprit is the caller that hands it an identity float matrix.
                 static volatile long ww_bt_n = 0;
-                if (InterlockedIncrement(&ww_bt_n) <= 12) {
+                // [nomercy diag] WCW2K_WW_BT=<n> raises the backtrace cap (default 12) —
+                // needed when the interesting hits come late (registry-freeze hunt).
+                static long ww_bt_max = [] { const char* v = getenv("WCW2K_WW_BT"); return v ? atol(v) : 12L; }();
+                if (InterlockedIncrement(&ww_bt_n) <= ww_bt_max) {
                     CONTEXT c = *ep->ContextRecord;
                     for (int i = 0; i < 14 && c.Rip; i++) {
                         if (c.Rip >= base && c.Rip < base + 0x10000000ull)

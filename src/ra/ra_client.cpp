@@ -245,6 +245,33 @@ void client_event(const rc_client_event_t* event, rc_client_t*) {
     }
 }
 
+const char* ach_state_name(uint8_t state) {
+    switch (state) {
+    case RC_CLIENT_ACHIEVEMENT_STATE_INACTIVE: return "inactive";
+    case RC_CLIENT_ACHIEVEMENT_STATE_ACTIVE: return "active";
+    case RC_CLIENT_ACHIEVEMENT_STATE_UNLOCKED: return "unlocked";
+    case RC_CLIENT_ACHIEVEMENT_STATE_DISABLED: return "DISABLED";
+    default: return "?";
+    }
+}
+
+void dump_achievement_states(rc_client_t* client) {
+    rc_client_achievement_list_t* list = rc_client_create_achievement_list(
+        client, RC_CLIENT_ACHIEVEMENT_CATEGORY_CORE,
+        RC_CLIENT_ACHIEVEMENT_LIST_GROUPING_PROGRESS);
+    if (!list) return;
+    for (uint32_t b = 0; b < list->num_buckets; b++) {
+        for (uint32_t i = 0; i < list->buckets[b].num_achievements; i++) {
+            const rc_client_achievement_t* a = list->buckets[b].achievements[i];
+            fprintf(stderr, "[ra]   ach %u '%s' state=%s%s - %s\n", a->id, a->title,
+                    ach_state_name(a->state),
+                    a->unlocked ? " (unlocked-on-server)" : "",
+                    a->description ? a->description : "");
+        }
+    }
+    rc_client_destroy_achievement_list(list);
+}
+
 void load_game_callback(int result, const char* error_message, rc_client_t* client,
                         void*) {
     if (result != RC_OK) {
@@ -259,6 +286,7 @@ void load_game_callback(int result, const char* error_message, rc_client_t* clie
     rc_client_get_user_game_summary(client, &summary);
     fprintf(stderr, "[ra] achievements: %u core, %u unlocked\n",
             summary.num_core_achievements, summary.num_unlocked_achievements);
+    dump_achievement_states(client);
 }
 
 void login_callback(int result, const char* error_message, rc_client_t* client, void*) {
@@ -287,6 +315,45 @@ void login_callback(int result, const char* error_message, rc_client_t* client, 
 rc_runtime_t g_test_runtime;
 bool g_test_active = false;
 unsigned g_test_addr = 0, g_test_size = 8;
+
+// WCW_RA_WATCH=addr,addr,... : log the 8-bit value at each address (through
+// the active peek mode) whenever any of them changes.
+std::vector<unsigned> g_watch;
+std::vector<unsigned> g_watch_last;
+
+void setup_watch() {
+    const char* spec = getenv("WCW_RA_WATCH");
+    if (!spec) return;
+    char buf[512];
+    snprintf(buf, sizeof(buf), "%s", spec);
+    for (char* tok = strtok(buf, ","); tok; tok = strtok(nullptr, ",")) {
+        unsigned a = (unsigned)strtoul(tok, nullptr, 0);
+        g_watch.push_back(a);
+        g_watch_last.push_back(0xFFFFFFFF);
+    }
+    fprintf(stderr, "[ra] watching %zu addresses\n", g_watch.size());
+}
+
+void poll_watch() {
+    uint8_t* rdram = g_rdram.load();
+    if (!rdram) return;
+    bool changed = false;
+    for (size_t i = 0; i < g_watch.size(); i++) {
+        unsigned a = g_watch[i];
+        // both interpretations packed: high byte = raw, low byte = xor3
+        unsigned v = ((unsigned)rdram[a] << 8) | rdram[a ^ 3];
+        if (v != g_watch_last[i]) { g_watch_last[i] = v; changed = true; }
+    }
+    if (!changed) return;
+    std::string line = "[ra] watch(raw/x3):";
+    char part[48];
+    for (size_t i = 0; i < g_watch.size(); i++) {
+        snprintf(part, sizeof(part), " %06X=%02X/%02X", g_watch[i],
+                 g_watch_last[i] >> 8, g_watch_last[i] & 0xFF);
+        line += part;
+    }
+    fprintf(stderr, "%s\n", line.c_str());
+}
 
 void test_event_handler(const rc_runtime_event_t* e) {
     if (e->type == RC_RUNTIME_EVENT_ACHIEVEMENT_TRIGGERED)
@@ -323,6 +390,7 @@ void setup_test_trigger() {
 void ra_thread() {
     fprintf(stderr, "[ra] thread up (peek mode: %s)\n", g_swap_mode ? "xor3" : "raw");
     setup_test_trigger();
+    setup_watch();
 
     const char* user = getenv("WCW_RA_USER");
     const char* pass = getenv("WCW_RA_PASS");
@@ -342,9 +410,24 @@ void ra_thread() {
                         "for live achievements)\n");
     }
 
+    char last_rp[256] = "";
+    int rp_tick = 0;
     for (;;) {
         drain_http_done();
-        if (g_client) rc_client_do_frame(g_client);
+        if (!g_watch.empty()) poll_watch();
+        if (g_client) {
+            rc_client_do_frame(g_client);
+            // Rich presence renders game memory through the set's own script -
+            // sensible text here proves the peeks read what the authors expect.
+            if (++rp_tick % 300 == 0 && rc_client_get_game_info(g_client)) {
+                char rp[256] = "";
+                rc_client_get_rich_presence_message(g_client, rp, sizeof(rp));
+                if (rp[0] && strcmp(rp, last_rp) != 0) {
+                    fprintf(stderr, "[ra] rich presence: %s\n", rp);
+                    snprintf(last_rp, sizeof(last_rp), "%s", rp);
+                }
+            }
+        }
         if (g_test_active) {
             rc_runtime_do_frame(&g_test_runtime, test_event_handler, runtime_peek,
                                 nullptr, nullptr);

@@ -127,8 +127,30 @@ set(SOURCES
     ${CMAKE_SOURCE_DIR}/src/main/main.cpp
     ${CMAKE_SOURCE_DIR}/src/main/register_overlays.cpp
     ${CMAKE_SOURCE_DIR}/src/game/recomp_api.cpp
+    ${CMAKE_SOURCE_DIR}/src/ra/ra_client.cpp
     ${CMAKE_SOURCE_DIR}/rsp/nomercy_audio.cpp
 )
+
+# RetroAchievements prototype: vendored rcheevos (see src/ra/rcheevos/VENDORED.txt)
+# compiled into the game exe. Softcore-only client, env-gated at runtime (WCW_RA=1).
+file(GLOB RCHEEVOS_SOURCES
+    ${CMAKE_SOURCE_DIR}/src/ra/rcheevos/src/*.c
+    ${CMAKE_SOURCE_DIR}/src/ra/rcheevos/src/rcheevos/*.c
+    ${CMAKE_SOURCE_DIR}/src/ra/rcheevos/src/rapi/*.c
+    ${CMAKE_SOURCE_DIR}/src/ra/rcheevos/src/rhash/*.c
+)
+list(APPEND SOURCES ${RCHEEVOS_SOURCES})
+target_include_directories(NoMercyRecompiled PRIVATE
+    ${CMAKE_SOURCE_DIR}/src/ra/rcheevos/include
+    ${CMAKE_SOURCE_DIR}/src/ra/rcheevos/src
+)
+target_compile_definitions(NoMercyRecompiled PRIVATE
+    RC_DISABLE_LUA
+    RC_CLIENT_SUPPORTS_HASH
+)
+if (WIN32)
+    target_link_libraries(NoMercyRecompiled PRIVATE winhttp.lib)
+endif()
 target_include_directories(NoMercyRecompiled PRIVATE
     ${CMAKE_SOURCE_DIR}/include
     ${NMR}/N64Recomp/include

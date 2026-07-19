@@ -84,3 +84,4 @@ boot*_stacks*.txt
 boot-screenshot.png
 shot-*.png
 tools/*.exe
+ra*.log

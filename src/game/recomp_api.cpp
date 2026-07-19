@@ -12,11 +12,16 @@
 // patches/syms.ld and is exposed to patches via the generated manual_patch_symbols
 // table — only implement (and list in syms.ld) what patches actually use.
 
+#include "../ra/ra_client.h"
+
 // Bridge for nomercy.toml `ignored` functions that aren't in N64Recomp's built-in
 // auto-ignore set: toml-ignored calls are emitted against the PLAIN name, while
 // librecomp exports only the `_recomp` shim.
 extern "C" void osDriveRomInit_recomp(uint8_t* rdram, recomp_context* ctx);
 extern "C" void osDriveRomInit(uint8_t* rdram, recomp_context* ctx) {
+    // First boot-time hook that holds the rdram base: hand it to the
+    // RetroAchievements prototype (no-op unless WCW_RA=1).
+    wcw::ra::notify_rdram(rdram);
     osDriveRomInit_recomp(rdram, ctx);
 }
 

@@ -96,6 +96,9 @@ python tools\fix_stumps.py                 # rechains functions N64Recomp trunca
 #   at overlapping same-section symbols (dropped epilogues = stack corruption)
 python tools\fix_switches.py               # completes jump tables truncated at
 #   out-of-function entries (truncated tables abort the process via switch_error)
+python tools\fix_jraddend.py               # repairs jump tables whose INDEX N64Recomp
+#   const-folded to 0 (loop-induction-pointer-indexed tables: the switch collapses to
+#   case 0). Caused championship wins to be recorded as losses — see docs history.
 python tools\fix_backbranches.py           # audits every function for branches
 #   outside its decoded span (N64Recomp silently reroutes them to a bogus local
 #   label). If it prints MISSING lines: add the printed extra_funcs entries,

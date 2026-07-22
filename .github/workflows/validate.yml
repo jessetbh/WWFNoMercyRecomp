@@ -99,6 +99,8 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python tools/fix_switches.py
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python tools/fix_jraddend.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python tools/fix_backbranches.py
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python tools/fix_selfentry.py

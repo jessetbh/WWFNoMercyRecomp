@@ -9,9 +9,16 @@ sisters' documented evidence patterns (adapted from Wm2k recon3.py / VPW64):
    candidates are SP/DP variants.
 Also: locate the two Vi getters' field source, and dump the gfx-ucode head for
 later RT64 GBI-database matching."""
-import struct
+import os, struct
 
-NM = r"C:\Users\selki\depot\NoMercyRecomp\nomercy.z64"
+# Resolve ROMs relative to this script (workspace root = ../..) so no absolute
+# machine paths live in git; sibling repos sit alongside this one.
+_WS = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
+
+def _sib(*parts):
+    return os.path.join(_WS, *parts)
+
+NM = _sib("NoMercyRecomp", "nomercy.z64")
 nm = open(NM, "rb").read()
 
 REG = ("zero at v0 v1 a0 a1 a2 a3 t0 t1 t2 t3 t4 t5 t6 t7 "

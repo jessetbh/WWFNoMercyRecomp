@@ -3,11 +3,18 @@
 neighborhood, audio dispatch table verification, gfx-ucode location, data
 pockets in the fixed segment, and libultra fingerprint transfer from WM2000
 (adapted from tools/recon2.py, Wm2k's Revenge->WM2000 pass)."""
-import re, struct
+import os, re, struct
 
-NM   = r"C:\Users\selki\depot\NoMercyRecomp\nomercy.z64"
-WM2K = r"C:\Users\selki\depot\Wm2kRecomp\wm2k.z64"
-WM_DUMP = r"C:\Users\selki\depot\Wm2kRecomp\syms\dump.toml"
+# Resolve ROMs/symbols relative to this script (workspace root = ../..) so no
+# absolute machine paths live in git; sibling repos sit alongside this one.
+_WS = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
+
+def _sib(*parts):
+    return os.path.join(_WS, *parts)
+
+NM   = _sib("NoMercyRecomp", "nomercy.z64")
+WM2K = _sib("Wm2kRecomp", "wm2k.z64")
+WM_DUMP = _sib("Wm2kRecomp", "syms", "dump.toml")
 
 nm = open(NM, "rb").read()
 wm = open(WM2K, "rb").read()

@@ -6,11 +6,18 @@ ROMs, an overlay-descriptor scan (WT/Revenge use 9-word descriptors:
 romStart, romEnd, entry, text/data/bss bounds), and an audio-ucode byte search
 (does Revenge's newer AKI audio microcode transfer?).
 """
-import struct
+import os, struct
 
-WM2K = r"C:\Users\selki\depot\Wm2kRecomp\wm2k.z64"
-REV  = r"C:\Users\selki\depot\WcwRevengeRecomp\revenge.z64"
-WT   = r"C:\Users\selki\depot\WcwNwoWorldTour\wcw.z64"
+# Resolve ROMs relative to this script (workspace root = ../..) so no absolute
+# machine paths live in git; sibling repos sit alongside this one.
+_WS = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
+
+def _sib(*parts):
+    return os.path.join(_WS, *parts)
+
+WM2K = _sib("Wm2kRecomp", "wm2k.z64")
+REV  = _sib("WcwRevengeRecomp", "revenge.z64")
+WT   = _sib("WcwNwoWorldTour", "wcw.z64")
 
 wm = open(WM2K, "rb").read()
 rev = open(REV, "rb").read()

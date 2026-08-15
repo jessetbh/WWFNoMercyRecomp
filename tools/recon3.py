@@ -9,9 +9,16 @@
    __osViCurr vs __osViNext by which global each loads.
 3. Refine the 0x37800/0x37C00 pocket edges (last jr $ra + 8 / first addiu $sp).
 """
-import struct
+import os, struct
 
-wm = open(r"C:\Users\selki\depot\Wm2kRecomp\wm2k.z64", "rb").read()
+# Resolve ROMs relative to this script (workspace root = ../..) so no absolute
+# machine paths live in git; sibling repos sit alongside this one.
+_WS = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
+
+def _sib(*parts):
+    return os.path.join(_WS, *parts)
+
+wm = open(_sib("Wm2kRecomp", "wm2k.z64"), "rb").read()
 
 FIXED = (0x1000, 0x4C160, 0x80000400)
 OVLS = [  # (romStart, textSizeBytes, vramText) from descriptors

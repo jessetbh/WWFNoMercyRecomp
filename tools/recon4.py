@@ -6,11 +6,18 @@ transfer from Revenge (revised between libultra releases), using looser evidence
 - prefix fingerprints (first N masked words) for osInitialize, osCreatePiManager,
   osCartRomInit, osSetEventMesg, osAiSetNextBuffer, __osDisableInt.
 """
-import re, struct
+import os, re, struct
 
-wm = open(r"C:\Users\selki\depot\Wm2kRecomp\wm2k.z64", "rb").read()
-rev = open(r"C:\Users\selki\depot\WcwRevengeRecomp\revenge.z64", "rb").read()
-REV_DUMP = r"C:\Users\selki\depot\WcwRevengeRecomp\syms\dump.toml"
+# Resolve ROMs/symbols relative to this script (workspace root = ../..) so no
+# absolute machine paths live in git; sibling repos sit alongside this one.
+_WS = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
+
+def _sib(*parts):
+    return os.path.join(_WS, *parts)
+
+wm = open(_sib("Wm2kRecomp", "wm2k.z64"), "rb").read()
+rev = open(_sib("WcwRevengeRecomp", "revenge.z64"), "rb").read()
+REV_DUMP = _sib("WcwRevengeRecomp", "syms", "dump.toml")
 
 def word(buf, off): return struct.unpack_from(">I", buf, off)[0]
 

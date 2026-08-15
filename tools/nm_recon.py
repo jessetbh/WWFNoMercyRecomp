@@ -5,10 +5,17 @@ entry-stub decode added. WM2000 is the reference sibling: its ROM supplies the
 similarity baseline, the audio-ucode signature (byte-identical to Revenge's),
 and (in nm_recon2) the libultra fingerprint source.
 """
-import struct
+import os, struct
 
-NM   = r"C:\Users\selki\depot\NoMercyRecomp\nomercy.z64"
-WM2K = r"C:\Users\selki\depot\Wm2kRecomp\wm2k.z64"
+# Resolve ROMs relative to this script (workspace root = ../..) so no absolute
+# machine paths live in git; sibling repos sit alongside this one.
+_WS = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
+
+def _sib(*parts):
+    return os.path.join(_WS, *parts)
+
+NM   = _sib("NoMercyRecomp", "nomercy.z64")
+WM2K = _sib("Wm2kRecomp", "wm2k.z64")
 
 nm = open(NM, "rb").read()
 wm = open(WM2K, "rb").read()

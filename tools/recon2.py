@@ -9,11 +9,18 @@ against the WM2000 fixed-segment code. Unlike WT->Revenge (different libultra
 generations, 3/46 transferred), Revenge->WM2000 is one year apart and the audio
 ucode already matched byte-exact.
 """
-import re, struct
+import os, re, struct
 
-WM2K = r"C:\Users\selki\depot\Wm2kRecomp\wm2k.z64"
-REV  = r"C:\Users\selki\depot\WcwRevengeRecomp\revenge.z64"
-REV_DUMP = r"C:\Users\selki\depot\WcwRevengeRecomp\syms\dump.toml"
+# Resolve ROMs/symbols relative to this script (workspace root = ../..) so no
+# absolute machine paths live in git; sibling repos sit alongside this one.
+_WS = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
+
+def _sib(*parts):
+    return os.path.join(_WS, *parts)
+
+WM2K = _sib("Wm2kRecomp", "wm2k.z64")
+REV  = _sib("WcwRevengeRecomp", "revenge.z64")
+REV_DUMP = _sib("WcwRevengeRecomp", "syms", "dump.toml")
 
 wm = open(WM2K, "rb").read()
 rev = open(REV, "rb").read()

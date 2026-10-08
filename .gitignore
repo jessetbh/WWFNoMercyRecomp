@@ -85,3 +85,10 @@ boot-screenshot.png
 shot-*.png
 tools/*.exe
 ra*.log
+
+# Never commit personal data: replay recordings, saves, ROMs
+*.csv
+saves/
+*.z64
+*.n64
+*.v64

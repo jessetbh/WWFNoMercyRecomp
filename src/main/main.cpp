@@ -14,7 +14,9 @@
 
 #define SDL_MAIN_HANDLED
 #include "SDL.h"
-#include "SDL_syswm.h"
+#ifdef _WIN32
+#include "SDL_syswm.h" // [linux] Windows-only: on X11 it drags in Xlib, whose "None" macro breaks ultramodern::input::Pak::None
+#endif
 #include "nfd.h"
 
 #include "ultramodern/ultra64.h"
@@ -209,10 +211,10 @@ ultramodern::renderer::WindowHandle create_window(ultramodern::gfx_callbacks_t::
     if (window == nullptr) {
         exit_error("Failed to create window: %s\n", SDL_GetError());
     }
+#if defined(_WIN32)
     SDL_SysWMinfo wmInfo;
     SDL_VERSION(&wmInfo.version);
     SDL_GetWindowWMInfo(window, &wmInfo);
-#if defined(_WIN32)
     return ultramodern::renderer::WindowHandle{ wmInfo.info.win.window, GetCurrentThreadId() };
 #else
     return ultramodern::renderer::WindowHandle{ window };
@@ -749,6 +751,9 @@ int main(int argc, char** argv) {
     recompui::config::create_controls_tab();
     recompui::config::create_sound_tab();
     recompui::config::finalize();
+
+    // Must run after the controls config is loaded (it creates/looks up input profiles, which
+    // recompinput only permits once defaults are settled) and before the game starts.
 
     // ROM intake. Default: the recompui launcher menu — first run shows "Load ROM" (nfd
     // file dialog, validated against the registered hash, then stored/remembered in the

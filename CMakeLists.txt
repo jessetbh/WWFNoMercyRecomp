@@ -12,7 +12,8 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang" AND CMAKE_CXX_SIMULATE_ID STREQUAL "MSVC")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-everything /W4")
+    # Newer CMake doesn't add /EHsc for clang-cl, which third-party code that throws needs.
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-everything /W4 /EHsc")
 endif()
 if (WIN32)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D_DISABLE_CONSTEXPR_MUTEX_CONSTRUCTOR")
@@ -41,6 +42,11 @@ set(RT64DIR ${CMAKE_SOURCE_DIR}/lib/rt64)
 set(RT64_STATIC TRUE)
 set(RT64_SDL_WINDOW_VULKAN TRUE)
 add_compile_definitions(HLSL_CPU)
+if (CMAKE_SYSTEM_NAME MATCHES "Linux")
+    # [linux] Every target that includes rt64/plume headers (recompui, the game) must agree that
+    # plume::RenderWindow is an SDL_Window*, not the X11 struct -- recompui doesn't link plume.
+    add_compile_definitions(PLUME_SDL_VULKAN_ENABLED RT64_SDL_WINDOW_VULKAN)
+endif()
 add_subdirectory(${RT64DIR} ${CMAKE_BINARY_DIR}/rt64)
 target_include_directories(rt64 PRIVATE ${CMAKE_BINARY_DIR}/rt64/src)
 
@@ -81,6 +87,13 @@ set(DXC_GS_OPTS "${DXC_COMMON_OPTS}" "-E" "GSMain" "-T gs_6_0")
 set(DXC_RT_OPTS "${DXC_COMMON_OPTS}" "-D" "RT_SHADER" "-T" "lib_6_3" "-fspv-target-env=vulkan1.1spirv1.4" "-fspv-extension=SPV_KHR_ray_tracing" "-fspv-extension=SPV_EXT_descriptor_indexing")
 if (WIN32)
     set(DXC "${RT64DIR}/src/contrib/dxc/bin/x64/dxc.exe")
+elseif (CMAKE_SYSTEM_NAME MATCHES "Linux")
+    # [linux] Vendored Linux DXC (same layout rt64's own CMakeLists uses).
+    if (CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64|arm64")
+        set(DXC "LD_LIBRARY_PATH=${RT64DIR}/src/contrib/dxc/lib/arm64" "${RT64DIR}/src/contrib/dxc/bin/arm64/dxc-linux")
+    else()
+        set(DXC "LD_LIBRARY_PATH=${RT64DIR}/src/contrib/dxc/lib/x64" "${RT64DIR}/src/contrib/dxc/bin/x64/dxc-linux")
+    endif()
 endif()
 
 # --- SDL2 (recompui/recompinput expect sdl2_SOURCE_DIR on Windows) ---
@@ -90,6 +103,9 @@ if (WIN32)
     FetchContent_Declare(sdl2
         URL https://github.com/libsdl-org/SDL/releases/download/release-${SDL2_VERSION}/SDL2-devel-${SDL2_VERSION}-VC.zip)
     FetchContent_MakeAvailable(sdl2)
+elseif (CMAKE_SYSTEM_NAME MATCHES "Linux")
+    # [linux] System SDL2 (libsdl2-dev / SDL2-devel / sdl2); recompui/recompinput read SDL2_INCLUDE_DIRS.
+    find_package(SDL2 REQUIRED)
 endif()
 
 # --- RecompFrontend (recompui + recompinput) ---
@@ -188,6 +204,20 @@ if (WIN32)
             "${RT64DIR}/src/contrib/dxc/bin/x64/dxil.dll"
             "${RT64DIR}/src/contrib/dxc/bin/x64/dxcompiler.dll"
             $<TARGET_FILE_DIR:NoMercyRecompiled>)
+endif()
+
+if (CMAKE_SYSTEM_NAME MATCHES "Linux")
+    # [linux] SDL2 from the system; threads/dl for the runtime; rt64 links X11 itself.
+    find_package(Threads REQUIRED)
+    target_include_directories(NoMercyRecompiled PRIVATE ${SDL2_INCLUDE_DIRS})
+    if (TARGET SDL2::SDL2)
+        target_link_libraries(NoMercyRecompiled PRIVATE SDL2::SDL2)
+    else()
+        target_link_libraries(NoMercyRecompiled PRIVATE ${SDL2_LIBRARIES})
+    endif()
+    target_link_libraries(NoMercyRecompiled PRIVATE Threads::Threads ${CMAKE_DL_LIBS})
+    # Look for bundled libraries in ./lib next to the binary first (see tools/linux/build_linux.sh).
+    set_target_properties(NoMercyRecompiled PROPERTIES BUILD_RPATH "$ORIGIN/lib" INSTALL_RPATH "$ORIGIN/lib")
 endif()
 
 # Copy the runtime UI assets and SDL controller db next to the exe so a fresh build runs

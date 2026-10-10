@@ -8,6 +8,7 @@
 #include <vector>
 #include <array>
 #include <filesystem>
+#include <algorithm>
 #include <cmath>
 #include <atomic>
 #include <fstream>
@@ -326,12 +327,23 @@ void set_frequency(uint32_t freq) {
 size_t get_frames_remaining();
 
 void queue_samples(int16_t* audio_data, size_t sample_count) {
-    // audio_data is interleaved stereo; swap L/R to correct for endianness handling.
+    // audio_data is interleaved stereo; swap L/R to correct for endianness handling, and apply
+    // Settings > Sound > Main Volume (0-100, linear like BMHero's; read per batch so the slider
+    // takes effect immediately).
     static std::vector<int16_t> buf;
     buf.resize(sample_count);
-    for (size_t i = 0; i + 1 < sample_count; i += 2) {
-        buf[i + 0] = audio_data[i + 1];
-        buf[i + 1] = audio_data[i + 0];
+    const float volume = std::clamp(static_cast<float>(recompui::config::sound::get_main_volume()) / 100.0f, 0.0f, 1.0f);
+    if (volume >= 1.0f) {
+        for (size_t i = 0; i + 1 < sample_count; i += 2) {
+            buf[i + 0] = audio_data[i + 1];
+            buf[i + 1] = audio_data[i + 0];
+        }
+    }
+    else {
+        for (size_t i = 0; i + 1 < sample_count; i += 2) {
+            buf[i + 0] = static_cast<int16_t>(std::lround(audio_data[i + 1] * volume));
+            buf[i + 1] = static_cast<int16_t>(std::lround(audio_data[i + 0] * volume));
+        }
     }
     uint32_t queued_frames_before = (uint32_t)get_frames_remaining();
     if (g_audio_device) {

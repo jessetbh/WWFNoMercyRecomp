@@ -1,0 +1,108 @@
+{
+    // Ray tracing light presets (read by RT64's WcwRaytracer; reloaded when this file changes).
+    // "default" applies to any venue not matched below. A venue is recognized by its "match"
+    // list of world texture hashes (WCW_RT_VENUE_LOG=1 prints the current scene's candidates).
+    // Fields: center [x, y, z] (receiver center on X/Z, key light height on Y), spread, fills,
+    // keyWeight, size (light panel width), radius (shadow receiver radius), shadow,
+    // characterShadow, clearance, falloff, glows [[x, y, z, intensity, range], ...], anchor, or "lights": [[x, y, z, weight], ...] to place up to 8 lights explicitly.
+    // Default: classic WWF TV lighting (No Mercy's arenas are all indoor TV sets): a key light
+    // high over the ring center and lights out over the ring corners, shadows out to the
+    // barricades and the bottom of the ramp.
+    "default": {
+        "center": [0, 650, 0],
+        "lights": [[0, 650, 0, 2], [-320, 600, -320, 1], [320, 600, -320, 1], [-320, 600, 320, 1], [320, 600, 320, 1]],
+        "size": 20,
+        "radius": 900,
+        "shadow": 0.6,
+        "characterShadow": 0.35
+    },
+    // Fallback for unmatched small scenes (backstage rooms without their own preset): ceiling
+    // lights generated from the room's bounds (count along the long axis, at height = fraction
+    // of floor to ceiling), nearest lights dominating (falloff).
+    "room": {
+        "maxExtent": 3000,
+        "count": 3,
+        "height": 0.85,
+        "falloff": 300,
+        "size": 40,
+        "shadow": 0.8,
+        "characterShadow": 0.4
+    },
+    "venues": [
+        {
+            // Arena match lists: world textures unique to each venue (attract-mode survey,
+            // 2026-10-11; scored on textures no other venue lists). Lights come from "default".
+            // Monday Night Raw: indoor basketball arena, red lights at the entrance.
+            "name": "Raw",
+            "match": ["B1E01BE92A6F5BE1", "5581B2F76A29CE38", "66578B3E4816988B", "EF135CC7C26673E5", "669C9B0502D15DC0",
+                      "110318FA35D3B483", "41865EF953B662F7", "56ECCBE5DF1F13F0", "3FF838B666927262", "F0E93246A3D6FBBE",
+                      "692A0CC7C61905BF", "60E5E746C8B86B4B", "F3F77C104B535891", "EC001CC480EFAACC", "C51D117013CA13F2"],
+            // Brighten the entrance stage seen from the ring (it sits ~2700-3100 out on +Z).
+            "glows": [[0, 500, 2700, 0.35, 1200]]
+        },
+        {
+            "name": "No Mercy",
+            "match": ["D36D6CF9881623AF", "6817B6502CB7486A", "D27570804F5F0690", "B88FEBF4AC9BC239", "531C8970CB36B06B",
+                      "0BDD7ABA37C9151A", "A164E3A8F9BDA7A9", "9AA9D5C005C1BAFA", "68FC6AB8752D242B", "B3438C4201612FA0",
+                      "394AB8B40263F5EB", "B8C767E3531D134C", "D36446C166ABC526", "93977E8730397E6A", "45217E5B80BF6CA6",
+                      "E89838D357E9F0DC", "092B01676174B8F4", "94E063689F7E54CF", "487E4E1AEC00FD6F", "AF23672D683643B3"]
+        },
+        {
+            "name": "SmackDown",
+            "match": ["A2F8CA632B36EA51", "F811C62F230B8139", "FDB77563BFEEC21C", "D2777814241665CD", "7BC77C80B7F00EB9",
+                      "5436D72C195CD794", "E9926942493B0BD9", "48D78C6727EBD976", "55EAA30B53E0F8C3", "AE96E418EFA25C0B",
+                      "307C6A843F274BF3", "A81A2B049A38CADE", "3DA27B8B1070914C", "0E65F6A540663B8F"]
+        },
+        {
+            "name": "Armageddon",
+            "match": ["194BDD82FAD0D12E", "4A2E656ACFF55548", "AD81EBA2CA01F0F9", "82798C9FB994C0E2", "A0B69CC22A8DB9D0",
+                      "927E4DF147B5BF27", "F23DA3F8E2AEABFC", "CF71DA4CB1538BFA", "2374A09549BA65BF", "3E6B1ABFE7BE112A",
+                      "735A0F226CFA2D5A", "45ECA5C6E53166B5", "8AF89BEE9F90BB4E", "B6A1B00E0C4D0096", "8F6142063EC11259"]
+        },
+        {
+            "name": "Survivor Series",
+            "match": ["EDC8CE6EEF6B444A", "3CDE9AE130CAD6A8", "82C57C2955053017", "672DE8DE683C47E8", "395186E01943BCC3",
+                      "166CA43724E80BC3", "7B4DE0BC294295BA", "EAA8CB3E44DF5DA1", "F0EC176C33CDE90F", "E9D6361754A9420E",
+                      "188F4B50BD5F77BE", "D56DA4CE8FA1A4AF"]
+        },
+        {
+            "name": "Royal Rumble",
+            "match": ["4ECF33D4F421C86A", "25D2D2092CE6414F", "594CCACDB0E6DF87", "7CCBBE057F1E00CA", "197DCAE66055D5AB",
+                      "75A306E7226B15EE", "6E15539C788029BC", "A8C225E931D54C34", "FEF574B4A820BEE3", "8408D04A252B91D1",
+                      "FFDDCB01B416DB33", "F2F1B08B2AE0BA3A", "F219AC10B18659F6", "06707B09928BB94B", "FD20FCD9FE2B0DBD",
+                      "7A53A953910E83AE", "AE4D8682386F4496", "A57611FC6743793D", "526FF6BBCFF4A0CD", "4AB7D63F5B8FB467"]
+        },
+        {
+            // Backstage: the entrance stage in front of the titantron. The titantron screen is the
+            // dominant light: lights far behind and above it, with a clearance so the screen, curtain and
+            // arches around them don't block them, so long shadows stream away from the tron.
+            // Scene-anchored (room-relative).
+            "name": "Backstage titantron",
+            "match": ["1706435B6B587F97", "8872BE28870ED3BB", "5CED4357C38A43FC", "D46A693FAF6A692E",
+                      "161620757D806C95", "890CAE9DFECE58BB"],
+            "anchor": "scene",
+            "center": [0, 600, 0],
+            "lights": [[0, 1100, 900, 1], [-650, 1100, 900, 1], [650, 1100, 900, 1]],
+            "clearance": 800,
+            "size": 120,
+            "radius": 0,
+            "shadow": 0.85,
+            "characterShadow": 0.5
+        },
+        {
+            // Backstage hallway: a long corridor (600 wide, ~1900 long, ceiling at 360) with bright
+            // overhead lights down its middle (falloff: the nearest lights dominate). Scene-anchored.
+            "name": "Backstage hallway",
+            "match": ["2666F57AD22DBA2A", "176AE8DA2A4742B6", "88508460137164E5", "71B04A0074D77252",
+                      "677BB67D436C28E0", "F0EA19EAB902B8DA"],
+            "anchor": "scene",
+            "center": [0, 337, 0],
+            "lights": [[0, 300, -800, 1], [0, 300, -400, 1], [0, 300, 0, 1], [0, 300, 400, 1], [0, 300, 800, 1]],
+            "falloff": 250,
+            "size": 40,
+            "radius": 0,
+            "shadow": 0.85,
+            "characterShadow": 0.4
+        }
+    ]
+}

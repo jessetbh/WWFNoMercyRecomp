@@ -82,12 +82,12 @@ def insert_after_includes(lines, text):
 
 # [wcw fix] 60Hz: RT64 interpolates this game's models from their camera-independent matrices,
 # which the game only exposes at the moment it multiplies them with the camera. These hooks hand
-# that pair to RT64 (lib/rt64/src/hle/rt64_rsp.cpp, wcw_nomercy_* functions).
+# that pair to RT64 (lib/rt64/src/hle/rt64_rsp.cpp, wcw_interp_* functions).
 WCW_MATRIX_DECLS = [
     '#include <string.h>  /* [wcw fix] memcpy for the matrix hook */\n',
     '/* [wcw fix] 60Hz matrix hooks, implemented in RT64 (rt64_rsp.cpp). */\n',
-    'extern void wcw_nomercy_process_multiply(uint32_t destAddr, uint32_t opBAddr, uint32_t srcAddr, const float* aMatrix16, const float* bMatrix16);\n',
-    'extern void wcw_nomercy_invalidate_local_matrix(uint32_t destAddr);\n',
+    'extern void wcw_interp_process_multiply(uint32_t destAddr, uint32_t opBAddr, uint32_t srcAddr, const float* aMatrix16, const float* bMatrix16);\n',
+    'extern void wcw_interp_invalidate_local_matrix(uint32_t destAddr);\n',
 ]
 
 WCW_MATRIX_HOOK = [
@@ -103,23 +103,23 @@ WCW_MATRIX_HOOK = [
     '                memcpy(&wcw_a[wcw_i], &wcw_abits, sizeof(float));\n',
     '                memcpy(&wcw_b[wcw_i], &wcw_bbits, sizeof(float));\n',
     '            }\n',
-    '            wcw_nomercy_process_multiply(wcw_dst, (uint32_t)ctx->r5, (uint32_t)ctx->r4, wcw_a, wcw_b);\n',
+    '            wcw_interp_process_multiply(wcw_dst, (uint32_t)ctx->r5, (uint32_t)ctx->r4, wcw_a, wcw_b);\n',
     '        }\n',
     '        else {\n',
-    '            wcw_nomercy_invalidate_local_matrix(wcw_dst);\n',
+    '            wcw_interp_invalidate_local_matrix(wcw_dst);\n',
     '        }\n',
     '    }\n',
 ]
 
 WCW_F2L_DECLS = [
     '/* [wcw fix] 60Hz matrix hook, implemented in RT64 (rt64_rsp.cpp). */\n',
-    'extern void wcw_nomercy_forward_local_matrix(uint32_t srcAddr, uint32_t dstAddr);\n',
+    'extern void wcw_interp_forward_local_matrix(uint32_t srcAddr, uint32_t dstAddr);\n',
 ]
 
 WCW_F2L_HOOK = [
     "    /* [wcw fix] 60Hz: func_80038880 is guMtxF2L. Move the matrix hook's entry from the float\n",
     '       source (a0) to the fixed-point destination (a1) that gSPForceMatrix uploads. */\n',
-    '    wcw_nomercy_forward_local_matrix((uint32_t)ctx->r4, (uint32_t)ctx->r5);\n',
+    '    wcw_interp_forward_local_matrix((uint32_t)ctx->r4, (uint32_t)ctx->r5);\n',
 ]
 
 WCW_RESYNC_NULL_GUARD = [
@@ -256,7 +256,7 @@ def main():
 
     # [wcw fix] 60Hz matrix hooks (see WCW_MATRIX_HOOK / WCW_F2L_HOOK above)
     lines = load_lines('funcs_0.c')
-    if not any('wcw_nomercy_process_multiply' in l for l in lines):
+    if not any('wcw_interp_process_multiply' in l for l in lines):
         rng = body_range(lines, 'func_80001E08')
         if insert_after(lines, rng, '    int c1cs = 0;', WCW_MATRIX_HOOK, 'wcw-matrix'):
             insert_after_includes(lines, WCW_MATRIX_DECLS)
@@ -266,7 +266,7 @@ def main():
         applied.append('wcw-matrix (already present)')
 
     lines = load_lines('funcs_16.c')
-    if not any('wcw_nomercy_forward_local_matrix' in l for l in lines):
+    if not any('wcw_interp_forward_local_matrix' in l for l in lines):
         rng = body_range(lines, 'func_80038880')
         if insert_after(lines, rng, '    int c1cs = 0;', WCW_F2L_HOOK, 'wcw-f2l'):
             insert_after_includes(lines, WCW_F2L_DECLS)

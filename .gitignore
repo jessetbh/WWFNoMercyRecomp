@@ -85,3 +85,18 @@ boot-screenshot.png
 shot-*.png
 tools/*.exe
 ra*.log
+
+# ROM-hack patch mods (tools/romhack) and portable-mode testing (portable.txt puts config,
+# saves and mods next to it)
+/romhack-test/
+/romhack_raw_recomp.toml
+/RecompiledFuncs/repaired_functions.txt
+/portable.txt
+/mods/
+/mod_config/
+/saves/
+/general.json*
+/graphics.json*
+/controls.json*
+/mods.json*
+/sound.json*

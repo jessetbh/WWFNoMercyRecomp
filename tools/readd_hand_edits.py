@@ -127,10 +127,19 @@ def rt_hand_edits():
         _save(fn, lines)
         return '%s (%d site(s))' % (func, len(hits))
     done = []
-    done.append(_insert_after_all('funcs_0.c', 'func_80001580', '    ctx->r4 = ADD32(ctx->r6, 0);', [
-        '    { /* [nomercy][rt] camera latch: a1 = P, a2 = V */\n',
-        '      extern void wcw_rt_latch_camera(uint8_t* rdram, uint32_t proj_vaddr, uint32_t view_vaddr);\n',
-        '      wcw_rt_latch_camera(rdram, (uint32_t)ctx->r5, (uint32_t)ctx->r6); }\n'], 1))
+    # The latch sits in the matrix multiply func_80001580 calls, not in func_80001580 itself:
+    # mods hook func_80001580 (AkiMods' camera) and a hooked function is recompiled from the
+    # ROM without hand-edits. Older generated files had it in func_80001580: strip that site.
+    lines = _load('funcs_0.c')
+    old = next((i for i, l in enumerate(lines) if '[nomercy][rt] camera latch: a1 = P, a2 = V' in l), None)
+    if old is not None:
+        del lines[old:old + 3]
+        _save('funcs_0.c', lines)
+        done.append('removed old latch in func_80001580')
+    done.append(_insert_after_all('funcs_0.c', 'func_80001E08', '    int c1cs = 0;', [
+        '    { /* [nomercy][rt] camera latch: a0 = V, a1 = P, a2 = product (the camera matrix when called from the camera builder) */\n',
+        '      extern void wcw_rt_latch_camera_multiply(uint8_t* rdram, uint32_t view_vaddr, uint32_t proj_vaddr, uint32_t dest_vaddr);\n',
+        '      wcw_rt_latch_camera_multiply(rdram, (uint32_t)ctx->r4, (uint32_t)ctx->r5, (uint32_t)ctx->r6); }\n'], 1))
     done.append(_insert_after_all('funcs_1.c', 'func_80002FA4', '    func_80002BB4(rdram, ctx);', [
         '    { /* [nomercy][rt] after the frame DL head is returned in v0 */\n',
         '      extern uint32_t wcw_rt_emit_camera(uint8_t* rdram, uint32_t gfx);\n',

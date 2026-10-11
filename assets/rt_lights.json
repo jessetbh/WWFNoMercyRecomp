@@ -14,12 +14,17 @@
         "size": 20,
         "radius": 900,
         "shadow": 0.6,
-        "characterShadow": 0.35
+        "characterShadow": 0.35,
+        // Spotlit ring: the arena and crowd beyond the receiver radius darken by up to 80%, easing in
+        // over 400 units past it. Wrestlers stay lit. Venues can set their own (0 = off).
+        "outsideDarkness": 0.8,
+        "outsideEdge": 400
     },
     // Fallback for unmatched small scenes (backstage rooms without their own preset): ceiling
     // lights generated from the room's bounds (count along the long axis, at height = fraction
     // of floor to ceiling), nearest lights dominating (falloff).
     "room": {
+        "outsideDarkness": 0,
         "maxExtent": 3000,
         "count": 3,
         "height": 0.85,
@@ -78,6 +83,7 @@
             // arches around them don't block them, so long shadows stream away from the tron.
             // Scene-anchored (room-relative).
             "name": "Backstage titantron",
+            "outsideDarkness": 0,
             "match": ["1706435B6B587F97", "8872BE28870ED3BB", "5CED4357C38A43FC", "D46A693FAF6A692E",
                       "161620757D806C95", "890CAE9DFECE58BB"],
             "anchor": "scene",
@@ -93,6 +99,7 @@
             // Backstage hallway: a long corridor (600 wide, ~1900 long, ceiling at 360) with bright
             // overhead lights down its middle (falloff: the nearest lights dominate). Scene-anchored.
             "name": "Backstage hallway",
+            "outsideDarkness": 0,
             "match": ["2666F57AD22DBA2A", "176AE8DA2A4742B6", "88508460137164E5", "71B04A0074D77252",
                       "677BB67D436C28E0", "F0EA19EAB902B8DA"],
             "anchor": "scene",

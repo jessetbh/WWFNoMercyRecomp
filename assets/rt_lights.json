@@ -424,20 +424,23 @@
             "glows": [[-480, 200, -100, 4.0, 750, 0.25, 0.45, 1.0], [-80, 200, 360, 4.0, 750, 1.0, 0.12, 0.06], [200, 180, 380, 3.5, 700, 1.0, 0.6, 0.25], [-130, 230, -250, 1.0, 420, 1.0, 0.55, 0.2]]
         },
         {
-            // Parking garage: concrete deck, a red car. Sodium-orange ceiling lamps along it, hard shadows. Scene-anchored.
+            // Parking garage: concrete deck, cars. Sodium-orange ceiling lamps along it, hard shadows (scene-anchored); the blue cars
+            // headlights on (owners idea, 2026-10-11): two halogen glows ahead of its nose (x -240, z -230 / -70) and a low light
+            // there, so wrestlers in front of it throw long shadows away from the car.
             "name": "Parking garage",
             "match": ["18EB83FF6AD4D228", "2354C8DF9A8408C3", "E1597D677AACA6B6", "F32C9229B346246C", "1B2477F32D33342F",
                        "1B83FFF1256F70AE", "D30ACAC0DDBCD12D", "4959FCD66614C2B2", "A155EB954E7427AC", "C32A54ECBA1FA3CD",
                        "73AEC80FB9277E48", "25FF56150E660CEF", "E7B988649F1E903E", "D57036C17E6C06C9", "CB0593AB6807FF16"],
             "anchor": "scene",
-            "lights": [[-737, 536, 0, 1], [0, 536, 0, 1], [737, 536, 0, 1]],
+            "lights": [[-737, 536, 0, 1], [0, 536, 0, 1], [737, 536, 0, 1], [-240, 70, -150, 3, 0.95, 0.97, 1.0]],
             "color": [1.0, 0.72, 0.42],
             "size": 40,
             "radius": 0,
             "falloff": 737,
             "shadow": 0.85,
             "characterShadow": 0.45,
-            "outsideDarkness": 0
+            "outsideDarkness": 0,
+            "glows": [[-240, 70, -230, 3.0, 1000, 1.0, 0.97, 0.88], [-240, 70, -70, 3.0, 1000, 1.0, 0.97, 0.88]]
         },
         {
             // Boiler room: pipes, boiler, chain-link cage, EXIT sign. Cool green-white fluorescent strips; orange glow by the boiler,

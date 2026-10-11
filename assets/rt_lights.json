@@ -36,15 +36,12 @@
     },
     "venues": [
         {
-            // Arena match lists: world textures unique to each venue (attract-mode survey,
-            // 2026-10-11; scored on textures no other venue lists). Lights come from "default".
-            // Monday Night Raw: indoor basketball arena, red lights at the entrance.
+            // Raw: tuned live with the owner (2026-10-11), locked so edits to "default" don't change it.
+            // Match: textures unique to Raw in the quickmatch sweep (scene (-2062,-1,-2065)-(2060,1221,3123)).
             "name": "Raw",
-            "match": ["B1E01BE92A6F5BE1", "5581B2F76A29CE38", "66578B3E4816988B", "EF135CC7C26673E5", "669C9B0502D15DC0",
-                      "110318FA35D3B483", "41865EF953B662F7", "56ECCBE5DF1F13F0", "3FF838B666927262", "F0E93246A3D6FBBE",
-                      "692A0CC7C61905BF", "60E5E746C8B86B4B", "F3F77C104B535891", "EC001CC480EFAACC", "C51D117013CA13F2"],
-            // Raw's own look (tuned live with the owner, 2026-10-11; locked here so edits to "default" don't
-            // change it): TV rig over the ring, spotlit ring with the crowd dimmed from the barricade out.
+            "match": ["B1E01BE92A6F5BE1", "EF135CC7C26673E5", "5581B2F76A29CE38", "66578B3E4816988B", "41865EF953B662F7",
+                       "669C9B0502D15DC0", "56ECCBE5DF1F13F0", "F0E93246A3D6FBBE", "3FF838B666927262", "110318FA35D3B483",
+                       "F3F77C104B535891", "C51D117013CA13F2", "60E5E746C8B86B4B", "692A0CC7C61905BF", "EC001CC480EFAACC"],
             "lights": [[0, 650, 0, 2], [-320, 600, -320, 1], [320, 600, -320, 1], [-320, 600, 320, 1], [320, 600, 320, 1]],
             "size": 20,
             "radius": 650,
@@ -56,46 +53,81 @@
             "glows": [[0, 500, 2700, 1.0, 1400]]
         },
         {
+            // No Mercy: match = textures unique to it in the quickmatch sweep (scene (-2063,-1,-2063)-(2060,1221,3123)). Lights: "default" (not rigged yet).
             "name": "No Mercy",
-            "match": ["D36D6CF9881623AF", "6817B6502CB7486A", "D27570804F5F0690", "B88FEBF4AC9BC239", "531C8970CB36B06B",
-                      "0BDD7ABA37C9151A", "A164E3A8F9BDA7A9", "9AA9D5C005C1BAFA", "68FC6AB8752D242B", "B3438C4201612FA0",
-                      "394AB8B40263F5EB", "B8C767E3531D134C", "D36446C166ABC526", "93977E8730397E6A", "45217E5B80BF6CA6",
-                      "E89838D357E9F0DC", "092B01676174B8F4", "94E063689F7E54CF", "487E4E1AEC00FD6F", "AF23672D683643B3"]
+            "match": ["B8C767E3531D134C", "93977E8730397E6A", "45217E5B80BF6CA6", "94E063689F7E54CF", "487E4E1AEC00FD6F",
+                       "7CDB9E54ACC83FA7", "09274F937E34EB66", "AF23672D683643B3", "B880E98B89DC1E45", "101D1B100F5189E5",
+                       "F175C9075CD4D70D", "FB5ED7EFAC345224", "E7A7267BEB0C1478", "E6B6FC044052A29C", "BB41807ACE37B465"]
         },
         {
+            // SmackDown: match = textures unique to it in the quickmatch sweep (scene (-2064,-3,-2061)-(2064,1267,3126)). Lights: "default" (not rigged yet).
             "name": "SmackDown",
-            "match": ["A2F8CA632B36EA51", "F811C62F230B8139", "FDB77563BFEEC21C", "D2777814241665CD", "7BC77C80B7F00EB9",
-                      "5436D72C195CD794", "E9926942493B0BD9", "48D78C6727EBD976", "55EAA30B53E0F8C3", "AE96E418EFA25C0B",
-                      "307C6A843F274BF3", "A81A2B049A38CADE", "3DA27B8B1070914C", "0E65F6A540663B8F"]
+            "match": ["A2F8CA632B36EA51", "F811C62F230B8139", "FDB77563BFEEC21C", "5436D72C195CD794", "D2777814241665CD",
+                       "7BC77C80B7F00EB9", "E9926942493B0BD9", "AE96E418EFA25C0B", "0E65F6A540663B8F", "A81A2B049A38CADE",
+                       "55EAA30B53E0F8C3", "3DA27B8B1070914C", "48D78C6727EBD976", "307C6A843F274BF3"]
         },
         {
-            "name": "Armageddon",
-            "match": ["194BDD82FAD0D12E", "4A2E656ACFF55548", "AD81EBA2CA01F0F9", "82798C9FB994C0E2", "A0B69CC22A8DB9D0",
-                      "927E4DF147B5BF27", "F23DA3F8E2AEABFC", "CF71DA4CB1538BFA", "2374A09549BA65BF", "3E6B1ABFE7BE112A",
-                      "735A0F226CFA2D5A", "45ECA5C6E53166B5", "8AF89BEE9F90BB4E", "B6A1B00E0C4D0096", "8F6142063EC11259"]
+            // Arena 3: match = textures unique to it in the quickmatch sweep (scene (-2065,-20,-2068)-(2061,1532,3120)). Lights: "default" (not rigged yet).
+            "name": "Arena 3",
+            "match": ["55C7DA5B924694AA", "5772021E5DED4427", "69D625899B81A822", "AC589BB88560EE55", "4B8F9E127F3BF4B6",
+                       "F64F2AB1AAC77735", "61634500D55CC9D2", "5AE10933B30C760F", "46D2BFF4FA95CCCE", "BE5C3FE2E095BE82",
+                       "1ACE5C174CE7981A", "DEEB023D84773714", "6459775A73876D4E", "C24CCB5EF30C512B", "802EA150E030E7B4"]
         },
         {
+            // Arena 4: match = textures unique to it in the quickmatch sweep (scene (-2060,0,-2060)-(2060,1220,3341)). Lights: "default" (not rigged yet).
+            "name": "Arena 4",
+            "match": ["53754A5809822093", "FF2A185616F6114F", "CDBBB4ED60269F23", "089D231B620CA08D", "4391E05557665E5A",
+                       "D350164007E99C4E", "1283E7EA2FBD167F", "04E9088520AC8685", "36E835F1173F433D", "BC39AEF0C8A9951E",
+                       "0D2EBA23D261076E", "116C6B66E2E403DC", "25193AA736AED699", "D24BCFBE6657F007", "1F04C58980380971"]
+        },
+        {
+            // Survivor Series: match = textures unique to it in the quickmatch sweep (scene (-2061,0,-2065)-(2060,1221,3340)). Lights: "default" (not rigged yet).
             "name": "Survivor Series",
-            "match": ["EDC8CE6EEF6B444A", "3CDE9AE130CAD6A8", "82C57C2955053017", "672DE8DE683C47E8", "395186E01943BCC3",
-                      "166CA43724E80BC3", "7B4DE0BC294295BA", "EAA8CB3E44DF5DA1", "F0EC176C33CDE90F", "E9D6361754A9420E",
-                      "188F4B50BD5F77BE", "D56DA4CE8FA1A4AF"]
+            "match": ["3CDE9AE130CAD6A8", "6BA3CF4C85877B2F", "2CA785A9EC16A198", "7B4DE0BC294295BA", "672DE8DE683C47E8",
+                       "166CA43724E80BC3", "82C57C2955053017", "395186E01943BCC3", "E9D6361754A9420E", "F0EC176C33CDE90F",
+                       "D56DA4CE8FA1A4AF", "188F4B50BD5F77BE", "EAA8CB3E44DF5DA1"]
         },
         {
+            // Arena 6: match = textures unique to it in the quickmatch sweep (scene (-2060,-1,-2060)-(2063,1220,3342)). Lights: "default" (not rigged yet).
+            "name": "Arena 6",
+            "match": ["4E9E3A549EBC857B", "34F7B2A1730608F7", "3AAF2A779D1BE63F", "07D45C0320C205FE", "54045B205C926FB5",
+                       "B71EF1E5F3EAD36D", "3B18AA06D243BE59", "26B287EF659EF7D9", "0AEAD239235056A2", "238ABCE933246B08",
+                       "4A260C9E67E08139"]
+        },
+        {
+            // WrestleMania: match = textures unique to it in the quickmatch sweep (scene (-2062,-2,-2063)-(2064,1226,3341)). Lights: "default" (not rigged yet).
+            "name": "WrestleMania",
+            "match": ["FC6980253DCDEC59", "7E4D10DCE125E06C", "01B3A2E492F5B70D", "85611432F042853C", "B306DECB35A1EC35",
+                       "5E0669B04DD61F51", "09F193E81FF0FC7F", "A1BB20A18DAA02DD", "3BEA50215FFA69C9", "DC5F733C9B6C8720"]
+        },
+        {
+            // Backlash: match = textures unique to it in the quickmatch sweep (scene (-2065,0,-2068)-(2061,1223,3340)). Lights: "default" (not rigged yet).
+            "name": "Backlash",
+            "match": ["06A1220B5276422E", "CC7133748F74A9BE", "12CE2AF6036D1B01", "E58A638EE6257765", "BED5E6F2F8FEA4FE",
+                       "0CFA9F65577B952A", "1DF3B0E28AAE2308", "3B21E49B7F3C2752", "E4F7761EBC83E853", "E8598F49A1A3593D",
+                       "4AA55108F851632D", "A2EFAD4857AF0E1A", "50765556CCC38273", "419F4EDCED23D0A7", "53685BD6B638F7A9"]
+        },
+        {
+            // Armageddon: match = textures unique to it in the quickmatch sweep (scene (-2061,-3,-2063)-(2062,1223,3341)). Lights: "default" (not rigged yet).
+            "name": "Armageddon",
+            "match": ["194BDD82FAD0D12E", "4A2E656ACFF55548", "AD81EBA2CA01F0F9", "82798C9FB994C0E2", "CF71DA4CB1538BFA",
+                       "927E4DF147B5BF27", "A0B69CC22A8DB9D0", "F23DA3F8E2AEABFC", "2374A09549BA65BF", "735A0F226CFA2D5A",
+                       "3E6B1ABFE7BE112A", "B6A1B00E0C4D0096", "8AF89BEE9F90BB4E", "8F6142063EC11259", "45ECA5C6E53166B5"]
+        },
+        {
+            // Royal Rumble: from the attract demo; in the quickmatch sweep it only matched an intro scene, never a ring.
             "name": "Royal Rumble",
             "match": ["4ECF33D4F421C86A", "25D2D2092CE6414F", "594CCACDB0E6DF87", "7CCBBE057F1E00CA", "197DCAE66055D5AB",
-                      "75A306E7226B15EE", "6E15539C788029BC", "A8C225E931D54C34", "FEF574B4A820BEE3", "8408D04A252B91D1",
-                      "FFDDCB01B416DB33", "F2F1B08B2AE0BA3A", "F219AC10B18659F6", "06707B09928BB94B", "FD20FCD9FE2B0DBD",
-                      "7A53A953910E83AE", "AE4D8682386F4496", "A57611FC6743793D", "526FF6BBCFF4A0CD", "4AB7D63F5B8FB467"]
+                       "75A306E7226B15EE", "6E15539C788029BC", "A8C225E931D54C34", "FEF574B4A820BEE3", "8408D04A252B91D1",
+                       "FFDDCB01B416DB33", "F2F1B08B2AE0BA3A", "F219AC10B18659F6", "06707B09928BB94B", "FD20FCD9FE2B0DBD",
+                       "7A53A953910E83AE", "AE4D8682386F4496", "A57611FC6743793D", "526FF6BBCFF4A0CD", "4AB7D63F5B8FB467"]
         },
         {
-            // Backstage: the entrance stage in front of the titantron. The titantron screen is the
-            // dominant light: lights far behind and above it, with a clearance so the screen, curtain and
-            // arches around them don't block them, so long shadows stream away from the tron.
-            // Scene-anchored (room-relative).
+            // Backstage titantron: the attract demo's entrance scene (entrance stages get their own presets later).
             "name": "Backstage titantron",
             "outsideDarkness": 0,
-            "match": ["1706435B6B587F97", "8872BE28870ED3BB", "5CED4357C38A43FC", "D46A693FAF6A692E",
-                      "161620757D806C95", "890CAE9DFECE58BB"],
+            "match": ["1706435B6B587F97", "8872BE28870ED3BB", "5CED4357C38A43FC", "D46A693FAF6A692E", "161620757D806C95",
+                       "890CAE9DFECE58BB"],
             "anchor": "scene",
             "center": [0, 600, 0],
             "lights": [[0, 1100, 900, 1], [-650, 1100, 900, 1], [650, 1100, 900, 1]],
@@ -106,12 +138,12 @@
             "characterShadow": 0.5
         },
         {
-            // Backstage hallway: a long corridor (600 wide, ~1900 long, ceiling at 360) with bright
-            // overhead lights down its middle (falloff: the nearest lights dominate). Scene-anchored.
+            // Backstage hallway: original rig (scene-anchored); match = attract list + quickmatch sweep (scene (-300,-7,-960)-(300,360,970)).
             "name": "Backstage hallway",
             "outsideDarkness": 0,
-            "match": ["2666F57AD22DBA2A", "176AE8DA2A4742B6", "88508460137164E5", "71B04A0074D77252",
-                      "677BB67D436C28E0", "F0EA19EAB902B8DA"],
+            "match": ["2666F57AD22DBA2A", "176AE8DA2A4742B6", "88508460137164E5", "71B04A0074D77252", "677BB67D436C28E0",
+                       "F0EA19EAB902B8DA", "01A67348403FB6C6", "5671A3901C7D9F1B", "4F410A72E9D053E7", "41BAE27F1226195F",
+                       "235945502FA3FB47", "EAE1BC5B6107F32F"],
             "anchor": "scene",
             "center": [0, 337, 0],
             "lights": [[0, 300, -800, 1], [0, 300, -400, 1], [0, 300, 0, 1], [0, 300, 400, 1], [0, 300, 800, 1]],
@@ -120,6 +152,70 @@
             "radius": 0,
             "shadow": 0.85,
             "characterShadow": 0.4
+        },
+        {
+            // Backstage bar: match = textures unique to it in the quickmatch sweep (scene (-502,-3,-425)-(502,304,490)). Starter rig: three ceiling
+            // lights along the long axis at 85% of the room height (like the "room" fallback), anchored to the room.
+            "name": "Backstage bar",
+            "match": ["3BBB62D035E7953E", "067C03BD97F4912E", "DB36F64196DA9E11", "F580F66724284A15", "0271363EB6223EF0",
+                       "1509AB1437CAF792", "A28B29B942D41112", "4D5F5D4C6B27264F", "79B938C969D2F404", "52E12990A732B492",
+                       "CD4E03DF3B338E04", "574CCB866CDA3EC3", "BB7BB777C7F14B66", "83B8177F9E2C62DA", "511D217201A6A3C8"],
+            "anchor": "scene",
+            "lights": [[-335, 261, 0, 1], [0, 261, 0, 1], [335, 261, 0, 1]],
+            "size": 40,
+            "radius": 0,
+            "falloff": 335,
+            "shadow": 0.8,
+            "characterShadow": 0.4,
+            "outsideDarkness": 0
+        },
+        {
+            // Parking garage: match = textures unique to it in the quickmatch sweep (scene (-1375,-80,-435)-(835,550,1408)). Starter rig: three ceiling
+            // lights along the long axis at 85% of the room height (like the "room" fallback), anchored to the room.
+            "name": "Parking garage",
+            "match": ["18EB83FF6AD4D228", "2354C8DF9A8408C3", "E1597D677AACA6B6", "F32C9229B346246C", "1B2477F32D33342F",
+                       "1B83FFF1256F70AE", "D30ACAC0DDBCD12D", "4959FCD66614C2B2", "A155EB954E7427AC", "C32A54ECBA1FA3CD",
+                       "73AEC80FB9277E48", "E7B988649F1E903E", "25FF56150E660CEF", "CB0593AB6807FF16", "D57036C17E6C06C9"],
+            "anchor": "scene",
+            "lights": [[-737, 536, 0, 1], [0, 536, 0, 1], [737, 536, 0, 1]],
+            "size": 40,
+            "radius": 0,
+            "falloff": 737,
+            "shadow": 0.8,
+            "characterShadow": 0.4,
+            "outsideDarkness": 0
+        },
+        {
+            // Boiler room: match = textures unique to it in the quickmatch sweep (scene (-536,-9,-235)-(746,352,410)). Starter rig: three ceiling
+            // lights along the long axis at 85% of the room height (like the "room" fallback), anchored to the room.
+            "name": "Boiler room",
+            "match": ["747556E48956D361", "598D2F9CA63BE089", "1C71D41AD27BD45B", "7E01F9D10C5AC17B", "68AB7FEFC83571AB",
+                       "88F80FFF14CB0FD4", "A695571E29F65FC0", "D851771675CA48CC", "CEA98486E1FD2CF7", "F5C0D940D89A2FBC",
+                       "D019C065F557F849", "0DDF507FE90EB5E4", "AA037A9A6B9DE8F8", "894F67A16A791719", "E330FDF8C0D3978F"],
+            "anchor": "scene",
+            "lights": [[-427, 307, 0, 1], [0, 307, 0, 1], [427, 307, 0, 1]],
+            "size": 40,
+            "radius": 0,
+            "falloff": 427,
+            "shadow": 0.8,
+            "characterShadow": 0.4,
+            "outsideDarkness": 0
+        },
+        {
+            // Locker room: match = textures unique to it in the quickmatch sweep (scene (-658,-6,-368)-(482,363,445)). Starter rig: three ceiling
+            // lights along the long axis at 85% of the room height (like the "room" fallback), anchored to the room.
+            "name": "Locker room",
+            "match": ["3CDEB0EAEAEBB559", "1E48F556A30B29B0", "A2741F043655BD52", "64CA84AD72021E13", "3262D033FE20D4CD",
+                       "F537F54207B3A588", "3FAA42A630FCBA28", "167013C7DB55C49A", "C83279475B947C77", "5920C4A07111D101",
+                       "D69EC30EB178A7E5", "BCE3982547C18636", "9E46AC65DAA9410A", "E7293B51CDEE8E58", "17F28C48AABF6F2E"],
+            "anchor": "scene",
+            "lights": [[-380, 314, 0, 1], [0, 314, 0, 1], [380, 314, 0, 1]],
+            "size": 40,
+            "radius": 0,
+            "falloff": 380,
+            "shadow": 0.8,
+            "characterShadow": 0.4,
+            "outsideDarkness": 0
         }
     ]
 }

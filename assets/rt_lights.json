@@ -5,6 +5,9 @@
     // Fields: center [x, y, z] (receiver center on X/Z, key light height on Y), spread, fills,
     // keyWeight, size (light panel width), radius (shadow receiver radius), shadow,
     // characterShadow, clearance, falloff, glows [[x, y, z, intensity, range], ...], anchor, or "lights": [[x, y, z, weight], ...] to place up to 8 lights explicitly.
+    // Colored light: "color" [r, g, b] tints every light (white = none; normalized, so brightness stays the same),
+    // "keyColor" / "fillColor" for the generated rig, [x, y, z, weight, r, g, b] for one light, and
+    // [x, y, z, intensity, range, r, g, b] for a colored glow (up to 4; not normalized, the color scales it).
     // Default: classic WWF TV lighting (No Mercy's arenas are all indoor TV sets): a key light
     // high over the ring center and lights out over the ring corners, shadows out to the
     // barricades and the bottom of the ramp.

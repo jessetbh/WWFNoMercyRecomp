@@ -388,25 +388,22 @@
                        "7A53A953910E83AE", "AE4D8682386F4496", "A57611FC6743793D", "526FF6BBCFF4A0CD", "4AB7D63F5B8FB467"]
         },
         {
-            // Backstage hallway: white cinder-block corridor under fluorescent tubes (tuned with the owner, 2026-10-11): dark corridor
-            // (outside darkness 0.85 beyond radius 1) lit only by its tubes as pale green-white glows; three steady, the one at -400 (in the game camera's view) a
-            // failing tube (flicker 1), the far end past it dark.
+            // Backstage hallway: white cinder-block corridor under fluorescent tubes. Five ceiling lights along it (scene-anchored),
+            // pale green-white fluorescent, hard-ish shadows. (Owner preferred this to the darkened, glow-lit and flickering versions.)
             "name": "Backstage hallway",
             "match": ["2666F57AD22DBA2A", "176AE8DA2A4742B6", "88508460137164E5", "71B04A0074D77252", "677BB67D436C28E0",
                        "F0EA19EAB902B8DA", "01A67348403FB6C6", "5671A3901C7D9F1B", "4F410A72E9D053E7", "41BAE27F1226195F",
                        "235945502FA3FB47", "EAE1BC5B6107F32F"],
+            "outsideDarkness": 0,
             "anchor": "scene",
             "center": [0, 337, 0],
-            "lights": [[0, 300, -800, 1], [0, 300, -400, 1], [0, 300, 0, 1], [0, 300, 400, 1]],
+            "lights": [[0, 300, -800, 1], [0, 300, -400, 1], [0, 300, 0, 1], [0, 300, 400, 1], [0, 300, 800, 1]],
             "color": [0.92, 1.0, 0.95],
             "falloff": 250,
             "size": 40,
-            "radius": 1,
+            "radius": 0,
             "shadow": 0.85,
-            "characterShadow": 0.45,
-            "outsideDarkness": 0.75,
-            "outsideEdge": 1,
-            "glows": [[0, 300, -800, 1.6, 550, 0.92, 1.0, 0.95], [0, 300, -400, 1.6, 550, 0.92, 1.0, 0.95, 1.0], [0, 300, 0, 1.6, 550, 0.92, 1.0, 0.95], [0, 300, 400, 1.6, 550, 0.92, 1.0, 0.95]]
+            "characterShadow": 0.45
         },
         {
             // Backstage bar (the APA bar), neon-lit with the owner (2026-10-11): no lamps casting shadows, the room dimmed (outside

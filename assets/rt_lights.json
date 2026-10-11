@@ -39,21 +39,24 @@
     },
     "venues": [
         {
-            // Raw: tuned live with the owner (2026-10-11), locked so edits to "default" don't change it.
-            // Match: textures unique to Raw in the quickmatch sweep (scene (-2062,-1,-2065)-(2060,1221,3123)).
+            // Raw is War (rigged 2026-10-11 with the free camera): an octagonal lighting truss hangs ~1100 over the ring, so
+            // a strong key at its center and four lamps at its corners (~+-450): a clear contact shadow under each wrestler
+            // and faint spokes. Cool white TV light. Spotlit ring with outside darkness (tuned live with the owner).
+            // Glows: the red fist screens and RAW IS WAR titantron over the entrance (+Z) wash the stage base red; the .com
+            // arches below them hold white-blue stage lamps.
             "name": "Raw",
             "match": ["B1E01BE92A6F5BE1", "66578B3E4816988B", "EF135CC7C26673E5", "5581B2F76A29CE38", "669C9B0502D15DC0",
                        "3FF838B666927262", "110318FA35D3B483", "41865EF953B662F7", "56ECCBE5DF1F13F0", "C51D117013CA13F2",
                        "F3F77C104B535891", "692A0CC7C61905BF", "EC001CC480EFAACC", "60E5E746C8B86B4B"],
-            "lights": [[0, 650, 0, 2], [-320, 600, -320, 1], [320, 600, -320, 1], [-320, 600, 320, 1], [320, 600, 320, 1]],
-            "size": 20,
+            "lights": [[0, 1100, 0, 3], [-450, 1050, -450, 1], [450, 1050, -450, 1], [-450, 1050, 450, 1], [450, 1050, 450, 1]],
+            "size": 30,
             "radius": 650,
-            "shadow": 0.6,
-            "characterShadow": 0.35,
+            "shadow": 0.65,
+            "characterShadow": 0.4,
+            "color": [0.95, 0.97, 1.0],
             "outsideDarkness": 0.55,
             "outsideEdge": 500,
-            // Brighten the entrance stage seen from the ring (it sits ~2700-3100 out on +Z).
-            "glows": [[0, 500, 2700, 1.0, 1400]]
+            "glows": [[0, 700, 2900, 3.0, 2200, 1.0, 0.18, 0.12], [0, 250, 2600, 2.0, 1200, 0.75, 0.85, 1.0]]
         },
         {
             // No Mercy: match = textures unique to it in the quickmatch sweep (scene (-2063,-1,-2063)-(2060,1221,3123)). Lights: "default" (not rigged yet).
@@ -117,14 +120,22 @@
                        "8AF89BEE9F90BB4E", "8F6142063EC11259", "B6A1B00E0C4D0096", "45ECA5C6E53166B5"]
         },
         {
-            // Raw stage: the entrance stage the game moves to when wrestlers leave the ring toward it. Match = textures
-            // unique to it in the quickmatch survey (scene (-1040,-200,-1043)-(1040,881,191)). Lights: not rigged yet.
+            // Raw stage: the entrance set the arena shows at its +Z end (RAW IS WAR titantron, red fist screens, .com truss
+            // arches, a white-blue light wall behind the WWF logo). The stage faces -Z, down the ramp. Rigged 2026-10-11 to match
+            // the arena: a white front spot (key) and overhead wash, red stage lights low at the front corners, a blue-white
+            // backlight from the light wall (shadows fall toward the camera); glows on the fist screens and the light wall.
             "name": "Raw stage",
             "match": ["8872BE28870ED3BB", "D46A693FAF6A692E", "6CE712BF30D020A2", "2FF8C67E04B231CE", "159DC46C64033604",
                        "8615EE71625C9BB4", "72131F48130A7325", "E541C9B7D2682044", "78AA0299162A4152", "6CCCE076F4940B4F",
                        "40A3B9227A641833", "EF7A47678F3601E5", "13DF6F405931370F"],
+            "lights": [[0, 800, -700, 2, 0.95, 0.97, 1.0], [0, 900, -50, 1.5, 0.95, 0.97, 1.0], [-700, 250, -350, 1, 1.0, 0.25, 0.2], [700, 250, -350, 1, 1.0, 0.25, 0.2], [0, 350, 120, 1, 0.75, 0.85, 1.0]],
+            "size": 40,
+            "radius": 0,
+            "falloff": 700,
+            "shadow": 0.65,
+            "characterShadow": 0.4,
             "outsideDarkness": 0,
-            "radius": 0
+            "glows": [[-850, 450, 120, 1.5, 900, 1.0, 0.2, 0.15], [850, 450, 120, 1.5, 900, 1.0, 0.2, 0.15], [0, 200, 80, 1.5, 600, 0.7, 0.8, 1.0]]
         },
         {
             // No Mercy stage: the entrance stage the game moves to when wrestlers leave the ring toward it. Match = textures

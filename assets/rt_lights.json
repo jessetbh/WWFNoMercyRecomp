@@ -406,9 +406,9 @@
             "characterShadow": 0.45
         },
         {
-            // Backstage bar (the APA bar), neon-lit at the owners request (2026-10-11): no lamps, the room dimmed (outside
-            // darkness 0.55 beyond radius 1; wrestlers keep their brightness) and lit by its practical glows: APA neon (blue, right
-            // wall), jukebox (red-orange) and lava lamp (violet) in the back-wall alcove, warm amber from the bar shelves.
+            // Backstage bar (the APA bar), neon-lit with the owner (2026-10-11): no lamps casting shadows, the room dimmed (outside
+            // darkness 0.55 beyond radius 1, wrestlers included) and lit by its practicals: APA neon (blue, right wall), jukebox
+            // (red, back-wall alcove), warm amber from the bar shelves, a very dim orange lamp over the pool table.
             "name": "Backstage bar",
             "match": ["3BBB62D035E7953E", "067C03BD97F4912E", "DB36F64196DA9E11", "F580F66724284A15", "0271363EB6223EF0",
                        "1509AB1437CAF792", "A28B29B942D41112", "4D5F5D4C6B27264F", "79B938C969D2F404", "52E12990A732B492",
@@ -421,7 +421,7 @@
             "characterShadow": 0,
             "outsideDarkness": 0.55,
             "outsideEdge": 1,
-            "glows": [[-480, 200, -100, 3.0, 600, 0.25, 0.45, 1.0], [-250, 110, 420, 4.0, 650, 1.0, 0.3, 0.1], [-120, 110, 420, 3.0, 450, 0.45, 0.3, 1.0], [200, 180, 380, 3.5, 700, 1.0, 0.6, 0.25]]
+            "glows": [[-480, 200, -100, 4.0, 750, 0.25, 0.45, 1.0], [-80, 200, 360, 4.0, 750, 1.0, 0.12, 0.06], [200, 180, 380, 3.5, 700, 1.0, 0.6, 0.25], [-130, 230, -250, 1.0, 420, 1.0, 0.55, 0.2]]
         },
         {
             // Parking garage: concrete deck, a red car. Sodium-orange ceiling lamps along it, hard shadows. Scene-anchored.

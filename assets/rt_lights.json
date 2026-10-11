@@ -42,9 +42,9 @@
             // Raw: tuned live with the owner (2026-10-11), locked so edits to "default" don't change it.
             // Match: textures unique to Raw in the quickmatch sweep (scene (-2062,-1,-2065)-(2060,1221,3123)).
             "name": "Raw",
-            "match": ["B1E01BE92A6F5BE1", "EF135CC7C26673E5", "5581B2F76A29CE38", "66578B3E4816988B", "41865EF953B662F7",
-                       "669C9B0502D15DC0", "56ECCBE5DF1F13F0", "F0E93246A3D6FBBE", "3FF838B666927262", "110318FA35D3B483",
-                       "F3F77C104B535891", "C51D117013CA13F2", "60E5E746C8B86B4B", "692A0CC7C61905BF", "EC001CC480EFAACC"],
+            "match": ["B1E01BE92A6F5BE1", "66578B3E4816988B", "EF135CC7C26673E5", "5581B2F76A29CE38", "669C9B0502D15DC0",
+                       "3FF838B666927262", "110318FA35D3B483", "41865EF953B662F7", "56ECCBE5DF1F13F0", "C51D117013CA13F2",
+                       "F3F77C104B535891", "692A0CC7C61905BF", "EC001CC480EFAACC", "60E5E746C8B86B4B"],
             "lights": [[0, 650, 0, 2], [-320, 600, -320, 1], [320, 600, -320, 1], [-320, 600, 320, 1], [320, 600, 320, 1]],
             "size": 20,
             "radius": 650,
@@ -58,64 +58,161 @@
         {
             // No Mercy: match = textures unique to it in the quickmatch sweep (scene (-2063,-1,-2063)-(2060,1221,3123)). Lights: "default" (not rigged yet).
             "name": "No Mercy",
-            "match": ["B8C767E3531D134C", "93977E8730397E6A", "45217E5B80BF6CA6", "94E063689F7E54CF", "487E4E1AEC00FD6F",
-                       "7CDB9E54ACC83FA7", "09274F937E34EB66", "AF23672D683643B3", "B880E98B89DC1E45", "101D1B100F5189E5",
-                       "F175C9075CD4D70D", "FB5ED7EFAC345224", "E7A7267BEB0C1478", "E6B6FC044052A29C", "BB41807ACE37B465"]
+            "match": ["B8C767E3531D134C", "93977E8730397E6A", "45217E5B80BF6CA6", "487E4E1AEC00FD6F", "94E063689F7E54CF",
+                       "AF23672D683643B3", "B880E98B89DC1E45", "09274F937E34EB66", "7CDB9E54ACC83FA7", "E7A7267BEB0C1478",
+                       "E6B6FC044052A29C", "101D1B100F5189E5", "F175C9075CD4D70D", "FB5ED7EFAC345224", "BB41807ACE37B465"]
         },
         {
             // SmackDown: match = textures unique to it in the quickmatch sweep (scene (-2064,-3,-2061)-(2064,1267,3126)). Lights: "default" (not rigged yet).
             "name": "SmackDown",
             "match": ["A2F8CA632B36EA51", "F811C62F230B8139", "FDB77563BFEEC21C", "5436D72C195CD794", "D2777814241665CD",
-                       "7BC77C80B7F00EB9", "E9926942493B0BD9", "AE96E418EFA25C0B", "0E65F6A540663B8F", "A81A2B049A38CADE",
-                       "55EAA30B53E0F8C3", "3DA27B8B1070914C", "48D78C6727EBD976", "307C6A843F274BF3"]
+                       "7BC77C80B7F00EB9", "E9926942493B0BD9", "307C6A843F274BF3", "AE96E418EFA25C0B", "A81A2B049A38CADE",
+                       "55EAA30B53E0F8C3", "3DA27B8B1070914C", "0E65F6A540663B8F"]
         },
         {
             // Arena 3: match = textures unique to it in the quickmatch sweep (scene (-2065,-20,-2068)-(2061,1532,3120)). Lights: "default" (not rigged yet).
             "name": "Arena 3",
-            "match": ["55C7DA5B924694AA", "5772021E5DED4427", "69D625899B81A822", "AC589BB88560EE55", "4B8F9E127F3BF4B6",
-                       "F64F2AB1AAC77735", "61634500D55CC9D2", "5AE10933B30C760F", "46D2BFF4FA95CCCE", "BE5C3FE2E095BE82",
-                       "1ACE5C174CE7981A", "DEEB023D84773714", "6459775A73876D4E", "C24CCB5EF30C512B", "802EA150E030E7B4"]
+            "match": ["55C7DA5B924694AA", "69D625899B81A822", "5772021E5DED4427", "AC589BB88560EE55", "F64F2AB1AAC77735",
+                       "4B8F9E127F3BF4B6", "802EA150E030E7B4", "1ACE5C174CE7981A", "536FAC916E903CE1", "BE5C3FE2E095BE82",
+                       "CE2413488A44B6B2", "C24CCB5EF30C512B", "46D2BFF4FA95CCCE", "DEEB023D84773714", "5AE10933B30C760F"]
         },
         {
             // Arena 4: match = textures unique to it in the quickmatch sweep (scene (-2060,0,-2060)-(2060,1220,3341)). Lights: "default" (not rigged yet).
             "name": "Arena 4",
-            "match": ["53754A5809822093", "FF2A185616F6114F", "CDBBB4ED60269F23", "089D231B620CA08D", "4391E05557665E5A",
-                       "D350164007E99C4E", "1283E7EA2FBD167F", "04E9088520AC8685", "36E835F1173F433D", "BC39AEF0C8A9951E",
-                       "0D2EBA23D261076E", "116C6B66E2E403DC", "25193AA736AED699", "D24BCFBE6657F007", "1F04C58980380971"]
+            "match": ["FF2A185616F6114F", "53754A5809822093", "4391E05557665E5A", "089D231B620CA08D", "CDBBB4ED60269F23",
+                       "1F04C58980380971", "BC39AEF0C8A9951E", "CD1F96E6F38E3E53", "116C6B66E2E403DC", "25193AA736AED699",
+                       "0D2EBA23D261076E", "9737DC64BA083DC6", "1283E7EA2FBD167F", "87629DBC6790518F", "D24BCFBE6657F007"]
         },
         {
             // Survivor Series: match = textures unique to it in the quickmatch sweep (scene (-2061,0,-2065)-(2060,1221,3340)). Lights: "default" (not rigged yet).
             "name": "Survivor Series",
-            "match": ["3CDE9AE130CAD6A8", "6BA3CF4C85877B2F", "2CA785A9EC16A198", "7B4DE0BC294295BA", "672DE8DE683C47E8",
-                       "166CA43724E80BC3", "82C57C2955053017", "395186E01943BCC3", "E9D6361754A9420E", "F0EC176C33CDE90F",
-                       "D56DA4CE8FA1A4AF", "188F4B50BD5F77BE", "EAA8CB3E44DF5DA1"]
+            "match": ["3CDE9AE130CAD6A8", "6BA3CF4C85877B2F", "2CA785A9EC16A198", "672DE8DE683C47E8", "7B4DE0BC294295BA",
+                       "166CA43724E80BC3", "82C57C2955053017", "395186E01943BCC3", "D56DA4CE8FA1A4AF", "EAA8CB3E44DF5DA1",
+                       "E9D6361754A9420E", "F0EC176C33CDE90F", "188F4B50BD5F77BE"]
         },
         {
             // Arena 6: match = textures unique to it in the quickmatch sweep (scene (-2060,-1,-2060)-(2063,1220,3342)). Lights: "default" (not rigged yet).
             "name": "Arena 6",
-            "match": ["4E9E3A549EBC857B", "34F7B2A1730608F7", "3AAF2A779D1BE63F", "07D45C0320C205FE", "54045B205C926FB5",
-                       "B71EF1E5F3EAD36D", "3B18AA06D243BE59", "26B287EF659EF7D9", "0AEAD239235056A2", "238ABCE933246B08",
-                       "4A260C9E67E08139"]
+            "match": ["34F7B2A1730608F7", "3AAF2A779D1BE63F", "07D45C0320C205FE", "54045B205C926FB5", "0AEAD239235056A2",
+                       "B71EF1E5F3EAD36D", "238ABCE933246B08", "26B287EF659EF7D9", "4A260C9E67E08139", "3B18AA06D243BE59"]
         },
         {
             // WrestleMania: match = textures unique to it in the quickmatch sweep (scene (-2062,-2,-2063)-(2064,1226,3341)). Lights: "default" (not rigged yet).
             "name": "WrestleMania",
-            "match": ["FC6980253DCDEC59", "7E4D10DCE125E06C", "01B3A2E492F5B70D", "85611432F042853C", "B306DECB35A1EC35",
-                       "5E0669B04DD61F51", "09F193E81FF0FC7F", "A1BB20A18DAA02DD", "3BEA50215FFA69C9", "DC5F733C9B6C8720"]
+            "match": ["7E4D10DCE125E06C", "01B3A2E492F5B70D", "85611432F042853C", "A1BB20A18DAA02DD", "B306DECB35A1EC35",
+                       "09F193E81FF0FC7F", "3BEA50215FFA69C9", "5E0669B04DD61F51"]
         },
         {
             // Backlash: match = textures unique to it in the quickmatch sweep (scene (-2065,0,-2068)-(2061,1223,3340)). Lights: "default" (not rigged yet).
             "name": "Backlash",
-            "match": ["06A1220B5276422E", "CC7133748F74A9BE", "12CE2AF6036D1B01", "E58A638EE6257765", "BED5E6F2F8FEA4FE",
-                       "0CFA9F65577B952A", "1DF3B0E28AAE2308", "3B21E49B7F3C2752", "E4F7761EBC83E853", "E8598F49A1A3593D",
-                       "4AA55108F851632D", "A2EFAD4857AF0E1A", "50765556CCC38273", "419F4EDCED23D0A7", "53685BD6B638F7A9"]
+            "match": ["06A1220B5276422E", "CC7133748F74A9BE", "12CE2AF6036D1B01", "E58A638EE6257765", "E8598F49A1A3593D",
+                       "BED5E6F2F8FEA4FE", "4AA55108F851632D", "1DF3B0E28AAE2308", "0CFA9F65577B952A", "E4F7761EBC83E853",
+                       "3B21E49B7F3C2752", "A2EFAD4857AF0E1A", "6DCDEA567C4DCFD8", "419F4EDCED23D0A7", "50765556CCC38273"]
         },
         {
             // Armageddon: match = textures unique to it in the quickmatch sweep (scene (-2061,-3,-2063)-(2062,1223,3341)). Lights: "default" (not rigged yet).
             "name": "Armageddon",
-            "match": ["194BDD82FAD0D12E", "4A2E656ACFF55548", "AD81EBA2CA01F0F9", "82798C9FB994C0E2", "CF71DA4CB1538BFA",
-                       "927E4DF147B5BF27", "A0B69CC22A8DB9D0", "F23DA3F8E2AEABFC", "2374A09549BA65BF", "735A0F226CFA2D5A",
-                       "3E6B1ABFE7BE112A", "B6A1B00E0C4D0096", "8AF89BEE9F90BB4E", "8F6142063EC11259", "45ECA5C6E53166B5"]
+            "match": ["194BDD82FAD0D12E", "4A2E656ACFF55548", "AD81EBA2CA01F0F9", "82798C9FB994C0E2", "A0B69CC22A8DB9D0",
+                       "CF71DA4CB1538BFA", "F23DA3F8E2AEABFC", "927E4DF147B5BF27", "2374A09549BA65BF", "3E6B1ABFE7BE112A",
+                       "8AF89BEE9F90BB4E", "8F6142063EC11259", "B6A1B00E0C4D0096", "45ECA5C6E53166B5"]
+        },
+        {
+            // Raw stage: the entrance stage the game moves to when wrestlers leave the ring toward it. Match = textures
+            // unique to it in the quickmatch survey (scene (-1040,-200,-1043)-(1040,881,191)). Lights: not rigged yet.
+            "name": "Raw stage",
+            "match": ["8872BE28870ED3BB", "D46A693FAF6A692E", "6CE712BF30D020A2", "2FF8C67E04B231CE", "159DC46C64033604",
+                       "8615EE71625C9BB4", "72131F48130A7325", "E541C9B7D2682044", "78AA0299162A4152", "6CCCE076F4940B4F",
+                       "40A3B9227A641833", "EF7A47678F3601E5", "13DF6F405931370F"],
+            "outsideDarkness": 0,
+            "radius": 0
+        },
+        {
+            // No Mercy stage: the entrance stage the game moves to when wrestlers leave the ring toward it. Match = textures
+            // unique to it in the quickmatch survey (scene (-1271,-8,-840)-(1270,880,628)). Lights: not rigged yet.
+            "name": "No Mercy stage",
+            "match": ["7BB9311DABD24FAD", "4DF926BA817FD43F", "9C6A14C9CD17C5F3", "D7430B7AB44D6852", "F4C35B95E429628D",
+                       "2576975831701A2F", "207D12A28219D4DE", "204A59CFAC548417", "B28F57FF91ECEAD0", "BA60F927677D8053",
+                       "2F4AB537E5604025", "312C0603CECAE231"],
+            "outsideDarkness": 0,
+            "radius": 0
+        },
+        {
+            // SmackDown stage: the entrance stage the game moves to when wrestlers leave the ring toward it. Match = textures
+            // unique to it in the quickmatch survey (scene (-2058,-282,-1273)-(750,1121,432)). Lights: not rigged yet.
+            "name": "SmackDown stage",
+            "match": ["3B8E1785E47D20C5", "F3AB4C2E7CC3CE79", "A6B5E5C93FE6B3AC", "07A58CDC3CBBDCF4", "7A16FBA11FD3D3E1",
+                       "621768B9A298A6C1", "5F0B2AC5FC0B6B3E", "8E51DFF77FC7DC6B", "AD319D7B494C5FF6", "5A70E7856CB6DD35",
+                       "ADC649B590EC61AF", "250B63D8CD31978C", "B914029B611D4DC4", "F34BE0F121FE0DEE", "5C4C68B8D4EC5A6F"],
+            "outsideDarkness": 0,
+            "radius": 0
+        },
+        {
+            // Arena 3 stage: the entrance stage the game moves to when wrestlers leave the ring toward it. Match = textures
+            // unique to it in the quickmatch survey (scene (-910,-21,-920)-(930,1532,773)). Lights: not rigged yet.
+            "name": "Arena 3 stage",
+            "match": ["019747B3588BBD16", "9381993091A65525", "9856F11763B95CEC", "9604BE13D07EB064", "25033D79641B59E7",
+                       "ED026F189A4197B0", "DE26710F2444A081", "646A4A00AC3865F9", "7C27AC8D05669A2F", "0B3A7EAC53DD3FDF",
+                       "2EFF6E063AEC689A", "8B6AF8A22BC27455", "425DF04ACDDE3A2F", "2FEAF30A8A5F2D58", "2E1CA70ADBCA7EE6"],
+            "outsideDarkness": 0,
+            "radius": 0
+        },
+        {
+            // Arena 4 stage: the entrance stage the game moves to when wrestlers leave the ring toward it. Match = textures
+            // unique to it in the quickmatch survey (scene (-850,0,-1125)-(850,951,876)). Lights: not rigged yet.
+            "name": "Arena 4 stage",
+            "match": ["12C52AFBE3CC9BE1", "3CDD0E3B497CC767", "63D0586C31E1CA96", "7AC065ADA753D399", "BB9DC81CD9EAB03E",
+                       "180623DD714A70BF", "EEC9905CC92E975A", "FD067B3FBED7E847", "BCA5C969A01EE138", "2D3B98B713B30196",
+                       "D3EAA918C82BCF1C", "302C216D1F19ACF0", "914C95EDFF5D9C63"],
+            "outsideDarkness": 0,
+            "radius": 0
+        },
+        {
+            // Survivor Series stage: the entrance stage the game moves to when wrestlers leave the ring toward it. Match = textures
+            // unique to it in the quickmatch survey (scene (-820,-2,-1176)-(820,840,879)). Lights: not rigged yet.
+            "name": "Survivor Series stage",
+            "match": ["D843CF2B1A0958B9", "39F03E93AD5A1052", "6DE07349BF77AAB0", "EBE6A84A74BD240F", "2BBF7469B5665F37",
+                       "E83093B984B3950E", "8165519FEF79174F", "AB1E7A9B1DFA253E", "12E68FB022AB71C1", "B3EBFDDA80C9CDF6",
+                       "9162C91950401858", "2152C666BC6CF90A", "D6CC83F7138826CF", "EC262F622B124B90"],
+            "outsideDarkness": 0,
+            "radius": 0
+        },
+        {
+            // Arena 6 stage: the entrance stage the game moves to when wrestlers leave the ring toward it. Match = textures
+            // unique to it in the quickmatch survey (scene (-1083,-1,-836)-(1080,1211,1203)). Lights: not rigged yet.
+            "name": "Arena 6 stage",
+            "match": ["B60A7796C3BB480F", "8C90AA50D44A150C", "04BFF06455542E85", "7DABA82EAD96F35D", "B066E790681AE4A6",
+                       "0BD2BB8554DBBB28", "B2E13E594EBF680E", "00AB1FD3456900C8", "7A30C50C979BBAB2", "337BA2A0FA0DCCCE",
+                       "5ED3D3350DB26EE3", "5A2B7C8AB91F74E8", "2559A43CBF069885", "35397EA7D156B7E4", "9F06E80E900CA021"],
+            "outsideDarkness": 0,
+            "radius": 0
+        },
+        {
+            // WrestleMania stage: the entrance stage the game moves to when wrestlers leave the ring toward it. Match = textures
+            // unique to it in the quickmatch survey (scene (-1280,-3,-1260)-(1280,720,699)). Lights: not rigged yet.
+            "name": "WrestleMania stage",
+            "match": ["F1DA7270D1548FAB", "BF87AD060CB53A1D", "B83BD87C0493DC0C", "7BAEF3CAC0655F8A", "C63E0CAE5DFAC35F",
+                       "73D3E021D139FBC1", "99BC299AF54F8045", "26A2680348393F3B", "6EDD613A9A6EC47A"],
+            "outsideDarkness": 0,
+            "radius": 0
+        },
+        {
+            // Backlash stage: the entrance stage the game moves to when wrestlers leave the ring toward it. Match = textures
+            // unique to it in the quickmatch survey (scene (-1150,-3,-921)-(1153,891,1186)). Lights: not rigged yet.
+            "name": "Backlash stage",
+            "match": ["2D74256D889B8DB4", "C04B216C87591DB1", "00BBC651E3A22F2D", "2DDAB465BD6E8321", "3AED15F0D8B8F261",
+                       "BC7120EA02FE6AF6", "C9759ED0212B0054", "6EDF0AA262304C88", "75F742565D55E701", "357018D89B45851E"],
+            "outsideDarkness": 0,
+            "radius": 0
+        },
+        {
+            // Armageddon stage: the entrance stage the game moves to when wrestlers leave the ring toward it. Match = textures
+            // unique to it in the quickmatch survey (scene (-1372,0,-1166)-(921,865,1200)). Lights: not rigged yet.
+            "name": "Armageddon stage",
+            "match": ["B8CF934106F17B68", "7821021AB2D96924", "3224FE23349FDDD8", "2E4964452A2C81B5", "D088D3EE5B0840C8",
+                       "1A45C7F6A4A9F5D8", "A62C93B9A193CDE9", "7FC9A4E9D4D16A3D", "B097745792457A6E", "07E076B243C50215",
+                       "8226C53B82D16B3D", "C89F41774BA56AE4", "D9E07FAB19ECB435", "6638E6FC8F576E10", "A266C0CADACE6258"],
+            "outsideDarkness": 0,
+            "radius": 0
         },
         {
             // Royal Rumble: from the attract demo; in the quickmatch sweep it only matched an intro scene, never a ring.
@@ -124,21 +221,6 @@
                        "75A306E7226B15EE", "6E15539C788029BC", "A8C225E931D54C34", "FEF574B4A820BEE3", "8408D04A252B91D1",
                        "FFDDCB01B416DB33", "F2F1B08B2AE0BA3A", "F219AC10B18659F6", "06707B09928BB94B", "FD20FCD9FE2B0DBD",
                        "7A53A953910E83AE", "AE4D8682386F4496", "A57611FC6743793D", "526FF6BBCFF4A0CD", "4AB7D63F5B8FB467"]
-        },
-        {
-            // Backstage titantron: the attract demo's entrance scene (entrance stages get their own presets later).
-            "name": "Backstage titantron",
-            "outsideDarkness": 0,
-            "match": ["1706435B6B587F97", "8872BE28870ED3BB", "5CED4357C38A43FC", "D46A693FAF6A692E", "161620757D806C95",
-                       "890CAE9DFECE58BB"],
-            "anchor": "scene",
-            "center": [0, 600, 0],
-            "lights": [[0, 1100, 900, 1], [-650, 1100, 900, 1], [650, 1100, 900, 1]],
-            "clearance": 800,
-            "size": 120,
-            "radius": 0,
-            "shadow": 0.85,
-            "characterShadow": 0.5
         },
         {
             // Backstage hallway: original rig (scene-anchored); match = attract list + quickmatch sweep (scene (-300,-7,-960)-(300,360,970)).
@@ -162,7 +244,7 @@
             "name": "Backstage bar",
             "match": ["3BBB62D035E7953E", "067C03BD97F4912E", "DB36F64196DA9E11", "F580F66724284A15", "0271363EB6223EF0",
                        "1509AB1437CAF792", "A28B29B942D41112", "4D5F5D4C6B27264F", "79B938C969D2F404", "52E12990A732B492",
-                       "CD4E03DF3B338E04", "574CCB866CDA3EC3", "BB7BB777C7F14B66", "83B8177F9E2C62DA", "511D217201A6A3C8"],
+                       "574CCB866CDA3EC3", "CD4E03DF3B338E04", "BB7BB777C7F14B66", "83B8177F9E2C62DA", "BB7AC5C4099B2E79"],
             "anchor": "scene",
             "lights": [[-335, 261, 0, 1], [0, 261, 0, 1], [335, 261, 0, 1]],
             "size": 40,
@@ -178,7 +260,7 @@
             "name": "Parking garage",
             "match": ["18EB83FF6AD4D228", "2354C8DF9A8408C3", "E1597D677AACA6B6", "F32C9229B346246C", "1B2477F32D33342F",
                        "1B83FFF1256F70AE", "D30ACAC0DDBCD12D", "4959FCD66614C2B2", "A155EB954E7427AC", "C32A54ECBA1FA3CD",
-                       "73AEC80FB9277E48", "E7B988649F1E903E", "25FF56150E660CEF", "CB0593AB6807FF16", "D57036C17E6C06C9"],
+                       "73AEC80FB9277E48", "25FF56150E660CEF", "E7B988649F1E903E", "D57036C17E6C06C9", "CB0593AB6807FF16"],
             "anchor": "scene",
             "lights": [[-737, 536, 0, 1], [0, 536, 0, 1], [737, 536, 0, 1]],
             "size": 40,
@@ -193,7 +275,7 @@
             // lights along the long axis at 85% of the room height (like the "room" fallback), anchored to the room.
             "name": "Boiler room",
             "match": ["747556E48956D361", "598D2F9CA63BE089", "1C71D41AD27BD45B", "7E01F9D10C5AC17B", "68AB7FEFC83571AB",
-                       "88F80FFF14CB0FD4", "A695571E29F65FC0", "D851771675CA48CC", "CEA98486E1FD2CF7", "F5C0D940D89A2FBC",
+                       "88F80FFF14CB0FD4", "D851771675CA48CC", "A695571E29F65FC0", "CEA98486E1FD2CF7", "F5C0D940D89A2FBC",
                        "D019C065F557F849", "0DDF507FE90EB5E4", "AA037A9A6B9DE8F8", "894F67A16A791719", "E330FDF8C0D3978F"],
             "anchor": "scene",
             "lights": [[-427, 307, 0, 1], [0, 307, 0, 1], [427, 307, 0, 1]],

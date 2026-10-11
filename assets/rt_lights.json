@@ -43,6 +43,15 @@
             "match": ["B1E01BE92A6F5BE1", "5581B2F76A29CE38", "66578B3E4816988B", "EF135CC7C26673E5", "669C9B0502D15DC0",
                       "110318FA35D3B483", "41865EF953B662F7", "56ECCBE5DF1F13F0", "3FF838B666927262", "F0E93246A3D6FBBE",
                       "692A0CC7C61905BF", "60E5E746C8B86B4B", "F3F77C104B535891", "EC001CC480EFAACC", "C51D117013CA13F2"],
+            // Raw's own look (tuned live with the owner, 2026-10-11; locked here so edits to "default" don't
+            // change it): TV rig over the ring, spotlit ring with the crowd dimmed from the barricade out.
+            "lights": [[0, 650, 0, 2], [-320, 600, -320, 1], [320, 600, -320, 1], [-320, 600, 320, 1], [320, 600, 320, 1]],
+            "size": 20,
+            "radius": 650,
+            "shadow": 0.6,
+            "characterShadow": 0.35,
+            "outsideDarkness": 0.55,
+            "outsideEdge": 500,
             // Brighten the entrance stage seen from the ring (it sits ~2700-3100 out on +Z).
             "glows": [[0, 500, 2700, 1.0, 1400]]
         },

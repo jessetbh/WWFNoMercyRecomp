@@ -20,7 +20,7 @@
         "characterShadow": 0.35,
         // Spotlit ring (tuned live with the owner, 2026-10-11): the lit area is the ring (radius 650);
         // the arena and crowd darken by up to 55% beyond it, easing in over 500 units so the front
-        // rows are dim but readable. Wrestlers stay lit. Venues can set their own (0 = off).
+        // rows are dim but readable (wrestlers out there too). Venues can set their own (0 = off).
         "outsideDarkness": 0.55,
         "outsideEdge": 500
     },
@@ -406,21 +406,22 @@
             "characterShadow": 0.45
         },
         {
-            // Backstage bar (the APA bar): wooden bar, pool table, blue APA neon, jukebox. Warm tungsten: a pendant over the pool
-            // table (key) and two bar lights; blue neon glow by the APA sign, warm spill over the table. Scene-anchored.
+            // Backstage bar (the APA bar), neon-lit at the owners request (2026-10-11): no lamps, the room dimmed (outside
+            // darkness 0.55 beyond radius 1; wrestlers keep their brightness) and lit by its practical glows: APA neon (blue, right
+            // wall), jukebox (red-orange) and lava lamp (violet) in the back-wall alcove, warm amber from the bar shelves.
             "name": "Backstage bar",
             "match": ["3BBB62D035E7953E", "067C03BD97F4912E", "DB36F64196DA9E11", "F580F66724284A15", "0271363EB6223EF0",
                        "1509AB1437CAF792", "A28B29B942D41112", "4D5F5D4C6B27264F", "79B938C969D2F404", "52E12990A732B492",
                        "574CCB866CDA3EC3", "CD4E03DF3B338E04", "BB7BB777C7F14B66", "83B8177F9E2C62DA", "BB7AC5C4099B2E79"],
             "anchor": "scene",
-            "lights": [[0, 230, 0, 2, 1.0, 0.8, 0.55], [-335, 261, 0, 1, 1.0, 0.85, 0.65], [335, 261, 0, 1, 1.0, 0.85, 0.65]],
+            "lights": [[0, 230, 0, 1]],
             "size": 35,
-            "radius": 0,
-            "falloff": 335,
-            "shadow": 0.8,
-            "characterShadow": 0.45,
-            "outsideDarkness": 0,
-            "glows": [[300, 180, 400, 1.5, 450, 0.3, 0.5, 1.0], [0, 200, 0, 0.8, 350, 1.0, 0.85, 0.6]]
+            "radius": 1,
+            "shadow": 0,
+            "characterShadow": 0,
+            "outsideDarkness": 0.55,
+            "outsideEdge": 1,
+            "glows": [[-480, 200, -100, 3.0, 600, 0.25, 0.45, 1.0], [-250, 110, 420, 4.0, 650, 1.0, 0.3, 0.1], [-120, 110, 420, 3.0, 450, 0.45, 0.3, 1.0], [200, 180, 380, 3.5, 700, 1.0, 0.6, 0.25]]
         },
         {
             // Parking garage: concrete deck, a red car. Sodium-orange ceiling lamps along it, hard shadows. Scene-anchored.

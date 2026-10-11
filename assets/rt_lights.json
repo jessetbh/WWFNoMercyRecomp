@@ -440,7 +440,7 @@
             "shadow": 0.85,
             "characterShadow": 0.45,
             "outsideDarkness": 0,
-            "glows": [[-110, 90, -230, 12, 750, 1.0, 0.97, 0.88], [-110, 90, -70, 12, 750, 1.0, 0.97, 0.88], [520, 260, 250, 4, 450, 1.0, 0.85, 0.6]]
+            "glows": [[-110, 90, -230, 12, 750, 1.0, 0.97, 0.88, 1], [-110, 90, -70, 12, 750, 1.0, 0.97, 0.88, 1], [520, 260, 250, 4, 450, 1.0, 0.85, 0.6]]
         },
         {
             // Boiler room: pipes, boiler, chain-link cage, EXIT sign. Cool green-white fluorescent strips; orange glow by the boiler,

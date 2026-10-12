@@ -301,8 +301,7 @@
             "glows": [[0, 800, 650, 4.0, 1820, 1.0, 0.95, 0.85], [0, 300, 200, 3.0, 1260, 0.4, 0.5, 1.0], [-650, 300, 300, 2.4, 840, 0.7, 0.3, 1.0], [650, 300, 300, 2.4, 840, 0.7, 0.3, 1.0]]
         },
         {
-            // Survivor Series stage: purple truss tunnel, red 1 disc at the back, white floor lamps, violet floor pools.
-            // Cool front spot, white backlight from the lamp row, purple truss lights; red disc, violet floor and white glows.
+            // v2 (2026-10-12): purple truss tunnel. Cool front spot, white backlight from the lamp row, purple truss lights (as current). Glows: the red 1 disc (lower, no clipping up close), violet floor pools, the white floor-lamp rows along both stage edges.
             "name": "Survivor Series stage",
             "match": ["D843CF2B1A0958B9", "39F03E93AD5A1052", "6DE07349BF77AAB0", "EBE6A84A74BD240F", "2BBF7469B5665F37",
                        "E83093B984B3950E", "8165519FEF79174F", "AB1E7A9B1DFA253E", "12E68FB022AB71C1", "B3EBFDDA80C9CDF6",
@@ -314,7 +313,7 @@
             "shadow": 0.8,
             "characterShadow": 0.5,
             "outsideDarkness": 0,
-            "glows": [[0, 650, 750, 3.0, 1260, 1.0, 0.15, 0.1], [-500, 150, 200, 3.0, 840, 0.7, 0.45, 1.0], [500, 150, 200, 3.0, 840, 0.7, 0.45, 1.0], [0, 300, 600, 2.4, 980, 0.95, 0.95, 1.0]]
+            "glows": [[0, 650, 750, 2.2, 1200, 1.0, 0.15, 0.1], [0, 120, 250, 3.0, 1000, 0.7, 0.45, 1.0], [-650, 100, -50, 2.4, 800, 0.95, 0.95, 1.0], [650, 100, -50, 2.4, 800, 0.95, 0.95, 1.0]]
         },
         {
             // Royal Rumble stage: a New York alley (graffiti brick, shutter, yellow taxi over the royalrumble sign, EXIT signs).

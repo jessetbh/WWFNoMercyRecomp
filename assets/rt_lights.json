@@ -271,8 +271,7 @@
             "glows": [[0, 400, 350, 4.0, 1260, 0.3, 0.55, 1.0], [0, 300, 420, 3.0, 840, 0.4, 0.8, 1.0], [0, 600, -250, 3.0, 1000, 0.9, 0.95, 1.0], [-900, 60, 450, 4.0, 1000, 0.45, 0.65, 1.0]]
         },
         {
-            // King of the Ring stage: huge blue K O R letters and swords, blue spot cones from a top truss, purple truss bridges, light wall.
-            // White front spot, blue top-truss spots, purple bridge lights; blue letter, white light-wall and purple bridge glows.
+            // v2 (2026-10-12): King of the Ring stage. White front spot, blue top-truss spots, purple bridge lights (as current). Glows split per source: blue on the K and on the R, white from the light wall behind the WWF logo, a purple wash between the truss bridges.
             "name": "Arena 3 stage",
             "match": ["019747B3588BBD16", "9381993091A65525", "9856F11763B95CEC", "9604BE13D07EB064", "25033D79641B59E7",
                        "ED026F189A4197B0", "DE26710F2444A081", "646A4A00AC3865F9", "7C27AC8D05669A2F", "0B3A7EAC53DD3FDF",
@@ -284,7 +283,7 @@
             "shadow": 0.8,
             "characterShadow": 0.5,
             "outsideDarkness": 0,
-            "glows": [[0, 700, 600, 4.0, 1400, 0.35, 0.5, 1.0], [0, 250, 650, 3.0, 840, 0.85, 0.9, 1.0], [-600, 200, 50, 2.4, 700, 0.7, 0.35, 1.0], [600, 200, 50, 2.4, 700, 0.7, 0.35, 1.0]]
+            "glows": [[-550, 750, 650, 3.5, 1100, 0.35, 0.5, 1.0], [550, 750, 650, 3.5, 1100, 0.35, 0.5, 1.0], [0, 250, 650, 3.0, 840, 0.85, 0.9, 1.0], [0, 180, 50, 2.6, 900, 0.7, 0.35, 1.0]]
         },
         {
             // SummerSlam stage: long blue stage between amp/speaker stacks, a cluster of six big floods at the back, small floor lamps.

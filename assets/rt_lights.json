@@ -133,8 +133,7 @@
             "glows": [[0, 600, 2300, 1.5, 1500, 0.35, 0.45, 1.0], [0, 1000, 2500, 1.0, 1300, 1.0, 0.95, 0.85]]
         },
         {
-            // Survivor Series (rigged 2026-10-11):
-            // Truss rig like Raw (key ~1100 + four corner lamps at +-450, the octagonal truss every arena hangs).
+            // v2 (2026-10-12): truss rig, cool white. The purple truss tunnel's own sources: the red 1 disc at its back (red glow centered on it), violet floor pools and the row of white floor lamps at the stage lip (as the stage rig), a dim violet wash up the truss.
             "name": "Survivor Series",
             "match": ["3CDE9AE130CAD6A8", "6BA3CF4C85877B2F", "2CA785A9EC16A198", "672DE8DE683C47E8", "7B4DE0BC294295BA",
                        "166CA43724E80BC3", "82C57C2955053017", "395186E01943BCC3", "D56DA4CE8FA1A4AF", "EAA8CB3E44DF5DA1",
@@ -144,11 +143,11 @@
             "radius": 650,
             "shadow": 0.65,
             "characterShadow": 0.4,
-            "color": [0.94, 0.96, 1.0],
-            "outsideDarkness": 0.6,
             "outsideEdge": 500,
             "litAreas": [[0, 2900, 900, 500]],
-            "glows": [[0, 600, 2300, 1.5, 1500, 1.0, 0.15, 0.1], [0, 1000, 2500, 1.0, 1300, 0.6, 0.5, 1.0]]
+            "color": [0.94, 0.96, 1.0],
+            "outsideDarkness": 0.6,
+            "glows": [[0, 950, 2750, 2.2, 1300, 1.0, 0.12, 0.08], [0, 80, 2400, 2.0, 1100, 0.7, 0.45, 1.0], [0, 120, 2280, 1.6, 1000, 0.95, 0.95, 1.0], [0, 600, 2550, 1.0, 1300, 0.75, 0.5, 1.0]]
         },
         {
             // Arena 6 = Royal Rumble (banners; the alley stage with the taxi).

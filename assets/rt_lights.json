@@ -238,20 +238,21 @@
             "glows": [[-850, 450, 120, 2.0, 1000, 1.0, 0.2, 0.15], [850, 450, 120, 2.0, 1000, 1.0, 0.2, 0.15], [0, 200, 80, 1.8, 700, 0.7, 0.8, 1.0], [0, 500, -250, 1.2, 700, 0.95, 0.97, 1.0]]
         },
         {
-            // No Mercy stage: blue-purple floor, blank big screen between two red no mercy screens, truss arches, blue floor lamps,
-            // wooden side ramps. Front spot + overhead (warm white), low blue floor lights throw long shadows up the set; red screen glows, orange ramp glows.
+            // v2 (2026-10-12): brighter warm-white front spot so wrestlers read from the game camera; blue uplights from
+            // the floor lamp row at the stage lip; red glows strong enough to color the side truss around the two
+            // no mercy screens; orange from the ramp-side lamps (as the arena's view of the set).
             "name": "No Mercy stage",
             "match": ["7BB9311DABD24FAD", "4DF926BA817FD43F", "9C6A14C9CD17C5F3", "D7430B7AB44D6852", "F4C35B95E429628D",
                        "2576975831701A2F", "207D12A28219D4DE", "204A59CFAC548417", "B28F57FF91ECEAD0", "BA60F927677D8053",
                        "2F4AB537E5604025", "312C0603CECAE231"],
-            "lights": [[0, 800, -500, 3, 1.0, 0.96, 0.9], [0, 900, 250, 1.5, 1.0, 0.96, 0.9], [-600, 120, 100, 1, 0.5, 0.6, 1.0], [600, 120, 100, 1, 0.5, 0.6, 1.0]],
+            "lights": [[0, 800, -600, 3.5, 1.0, 0.97, 0.92], [0, 900, 250, 1.5, 1.0, 0.97, 0.92], [-500, 80, 150, 1.2, 0.45, 0.55, 1.0], [500, 80, 150, 1.2, 0.45, 0.55, 1.0]],
             "size": 40,
             "radius": 0,
-            "falloff": 800,
-            "shadow": 0.8,
+            "falloff": 900,
+            "shadow": 0.75,
             "characterShadow": 0.5,
             "outsideDarkness": 0,
-            "glows": [[-900, 500, 550, 3.0, 1260, 1.0, 0.15, 0.1], [900, 500, 550, 3.0, 1260, 1.0, 0.15, 0.1], [-800, 60, -300, 2.0, 840, 1.0, 0.6, 0.3], [800, 60, -300, 2.0, 840, 1.0, 0.6, 0.3]]
+            "glows": [[-900, 500, 550, 4.5, 1400, 1.0, 0.12, 0.08], [900, 500, 550, 4.5, 1400, 1.0, 0.12, 0.08], [0, 60, 150, 3.0, 1000, 0.45, 0.55, 1.0], [0, 60, -350, 2.0, 900, 1.0, 0.6, 0.3]]
         },
         {
             // SmackDown stage: blue ribbed tunnel, round SmackDown screen, circular truss with lamps over the front, blue grated floor.

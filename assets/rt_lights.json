@@ -456,20 +456,22 @@
             "glows": [[-427, 280, 0, 1.4, 520, 0.88, 1.0, 0.92], [0, 280, 0, 1.4, 520, 0.88, 1.0, 0.92], [427, 280, 0, 1.4, 520, 0.88, 1.0, 0.92], [430, 110, -60, 3.0, 650, 1.0, 0.45, 0.15]]
         },
         {
-            // Locker room: white walls, lockers, a folding table. Neutral cool fluorescent ceiling lights. Scene-anchored.
+            // v2 (2026-10-12): lit by its ceiling fluorescents: three cool-white lights along the room, the room slightly darker (0.3) so the lockers keep their depth, floor pools under two fixtures.
             "name": "Locker room",
             "match": ["3CDEB0EAEAEBB559", "1E48F556A30B29B0", "A2741F043655BD52", "64CA84AD72021E13", "3262D033FE20D4CD",
                        "F537F54207B3A588", "3FAA42A630FCBA28", "167013C7DB55C49A", "C83279475B947C77", "5920C4A07111D101",
                        "D69EC30EB178A7E5", "BCE3982547C18636", "9E46AC65DAA9410A", "E7293B51CDEE8E58", "17F28C48AABF6F2E"],
             "anchor": "scene",
             "lights": [[-380, 314, 0, 1], [0, 314, 0, 1], [380, 314, 0, 1]],
-            "color": [0.95, 0.98, 1.0],
-            "size": 40,
-            "radius": 0,
-            "falloff": 376,
-            "shadow": 0.8,
+            "color": [0.93, 0.97, 1.0],
+            "size": 35,
+            "radius": 1,
+            "falloff": 330,
+            "shadow": 0.85,
             "characterShadow": 0.45,
-            "outsideDarkness": 0
+            "outsideDarkness": 0.3,
+            "outsideEdge": 1,
+            "glows": [[-200, 300, 0, 1.2, 450, 0.93, 0.97, 1.0], [200, 300, 0, 1.2, 450, 0.93, 0.97, 1.0]]
         }
     ]
 }

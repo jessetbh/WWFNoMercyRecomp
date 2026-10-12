@@ -60,8 +60,9 @@
             "glows": [[0, 600, 2300, 1.5, 1500, 1.0, 0.18, 0.12], [0, 1000, 2500, 1.0, 1300, 0.75, 0.85, 1.0]]
         },
         {
-            // No Mercy (rigged 2026-10-11):
-            // Truss rig like Raw (key ~1100 + four corner lamps at +-450, the octagonal truss every arena hangs).
+            // v2 (2026-10-12): truss rig, warm white. The set is blue-purple with two red no mercy screens and blue floor
+            // lamps: red glows on the side screens, a blue-white uplight at the stage lip (the floor lamp row), a dim
+            // violet wash on the big screen (as the stage rig).
             "name": "No Mercy",
             "match": ["B8C767E3531D134C", "93977E8730397E6A", "45217E5B80BF6CA6", "487E4E1AEC00FD6F", "94E063689F7E54CF",
                        "AF23672D683643B3", "B880E98B89DC1E45", "09274F937E34EB66", "7CDB9E54ACC83FA7", "E7A7267BEB0C1478",
@@ -71,11 +72,11 @@
             "radius": 650,
             "shadow": 0.65,
             "characterShadow": 0.4,
-            "color": [1.0, 0.96, 0.9],
-            "outsideDarkness": 0.65,
             "outsideEdge": 450,
             "litAreas": [[0, 2900, 900, 500]],
-            "glows": [[0, 600, 2300, 1.5, 1500, 1.0, 0.15, 0.1], [0, 1000, 2500, 1.0, 1300, 1.0, 0.15, 0.1]]
+            "color": [1.0, 0.96, 0.9],
+            "outsideDarkness": 0.65,
+            "glows": [[-650, 500, 2380, 2.5, 1100, 1.0, 0.12, 0.08], [650, 500, 2380, 2.5, 1100, 1.0, 0.12, 0.08], [0, 60, 2350, 2.5, 1200, 0.45, 0.55, 1.0], [0, 900, 2700, 0.8, 1300, 0.6, 0.45, 1.0]]
         },
         {
             // SmackDown (rigged 2026-10-11):

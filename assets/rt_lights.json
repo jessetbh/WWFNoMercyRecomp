@@ -167,8 +167,7 @@
             "glows": [[0, 600, 2300, 1.5, 1500, 1.0, 0.75, 0.3], [0, 1000, 2500, 1.0, 1300, 1.0, 0.6, 0.25]]
         },
         {
-            // WrestleMania (2000, rigged 2026-10-11):
-            // Truss rig like Raw (key ~1100 + four corner lamps at +-450, the octagonal truss every arena hangs).
+            // v2 (2026-10-12): WrestleMania 2000. Truss rig, neutral white. The set's sources: the two angled video screens on their trusses (white-violet light, as the stage rig's video-screen side light), the green WrestleMania logo wall between them, a white wash at the stage lip down the ramp.
             "name": "WrestleMania",
             "match": ["7E4D10DCE125E06C", "01B3A2E492F5B70D", "85611432F042853C", "A1BB20A18DAA02DD", "B306DECB35A1EC35",
                        "09F193E81FF0FC7F", "3BEA50215FFA69C9", "5E0669B04DD61F51"],
@@ -177,11 +176,11 @@
             "radius": 650,
             "shadow": 0.65,
             "characterShadow": 0.4,
-            "color": [1.0, 1.0, 1.0],
-            "outsideDarkness": 0.5,
             "outsideEdge": 550,
             "litAreas": [[0, 2900, 900, 500]],
-            "glows": [[0, 600, 2300, 1.5, 1500, 0.4, 1.0, 0.5], [0, 1000, 2500, 1.0, 1300, 0.95, 0.97, 1.0]]
+            "color": [1.0, 1.0, 1.0],
+            "outsideDarkness": 0.5,
+            "glows": [[-650, 550, 2400, 2.0, 1100, 0.85, 0.75, 1.0], [650, 550, 2400, 2.0, 1100, 0.85, 0.75, 1.0], [0, 500, 2700, 1.6, 1100, 0.4, 1.0, 0.5], [0, 100, 2300, 1.6, 1100, 0.95, 0.97, 1.0]]
         },
         {
             // Backlash (rigged 2026-10-11):

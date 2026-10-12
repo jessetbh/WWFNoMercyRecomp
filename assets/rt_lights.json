@@ -316,8 +316,8 @@
             "glows": [[0, 650, 750, 2.2, 1200, 1.0, 0.15, 0.1], [0, 120, 250, 3.0, 1000, 0.7, 0.45, 1.0], [-650, 100, -50, 2.4, 800, 0.95, 0.95, 1.0], [650, 100, -50, 2.4, 800, 0.95, 0.95, 1.0]]
         },
         {
-            // Royal Rumble stage: a New York alley (graffiti brick, shutter, yellow taxi over the royalrumble sign, EXIT signs).
-            // Night: two sodium-orange street lamps and a cool moonlight fill; taxi headlight and orange wall glows.
+            // v2 (2026-10-12): Royal Rumble NYC alley at night. Two sodium-orange street lamps and a cool moonlight fill (as current). Glows: sodium wash on the walls, the taxi's white headlights shining down the alley, the two green EXIT signs at the alley mouth.
+            // Round 2: the taxi's headlights shine hard down the alley; green EXIT signs lower and stronger.
             "name": "Arena 6 stage",
             "match": ["B60A7796C3BB480F", "8C90AA50D44A150C", "04BFF06455542E85", "7DABA82EAD96F35D", "B066E790681AE4A6",
                        "0BD2BB8554DBBB28", "B2E13E594EBF680E", "00AB1FD3456900C8", "7A30C50C979BBAB2", "337BA2A0FA0DCCCE",
@@ -329,7 +329,7 @@
             "shadow": 0.8,
             "characterShadow": 0.5,
             "outsideDarkness": 0,
-            "glows": [[0, 700, 600, 2.0, 980, 1.0, 0.95, 0.8], [0, 300, 0, 2.4, 1120, 1.0, 0.65, 0.35]]
+            "glows": [[0, 300, 0, 2.4, 1120, 1.0, 0.65, 0.35], [0, 450, 500, 4.5, 1300, 1.0, 0.97, 0.88], [-450, 220, 600, 3.0, 600, 0.3, 1.0, 0.45], [450, 220, 600, 3.0, 600, 0.3, 1.0, 0.45]]
         },
         {
             // WrestleMania stage: black stage, logo wall, two angled video screens on trusses.

@@ -183,8 +183,8 @@
             "glows": [[-650, 550, 2400, 2.0, 1100, 0.85, 0.75, 1.0], [650, 550, 2400, 2.0, 1100, 0.85, 0.75, 1.0], [0, 500, 2700, 1.6, 1100, 0.4, 1.0, 0.5], [0, 100, 2300, 1.6, 1100, 0.95, 0.97, 1.0]]
         },
         {
-            // Backlash (rigged 2026-10-11):
-            // Truss rig like Raw (key ~1100 + four corner lamps at +-450, the octagonal truss every arena hangs).
+            // v2 (2026-10-12): truss rig, cool white. The set's sources: the violet spade-shaped truss frame (a glow on each side), the silver-blue BACKLASH screen in its middle, the pink floor lamps at the stage lip (as the stage rig).
+            // Round 2: violet-tinted key and much stronger violet frame glows (the spade truss dominates).
             "name": "Backlash",
             "match": ["06A1220B5276422E", "CC7133748F74A9BE", "12CE2AF6036D1B01", "E58A638EE6257765", "E8598F49A1A3593D",
                        "BED5E6F2F8FEA4FE", "4AA55108F851632D", "1DF3B0E28AAE2308", "0CFA9F65577B952A", "E4F7761EBC83E853",
@@ -194,11 +194,11 @@
             "radius": 650,
             "shadow": 0.65,
             "characterShadow": 0.4,
-            "color": [0.94, 0.96, 1.0],
-            "outsideDarkness": 0.6,
             "outsideEdge": 500,
             "litAreas": [[0, 2900, 900, 500]],
-            "glows": [[0, 600, 2300, 1.5, 1500, 0.6, 0.45, 1.0], [0, 1000, 2500, 1.0, 1300, 0.7, 0.8, 1.0]]
+            "color": [0.92, 0.9, 1.0],
+            "outsideDarkness": 0.6,
+            "glows": [[-600, 500, 2400, 3.5, 1300, 0.65, 0.45, 1.0], [600, 500, 2400, 3.5, 1300, 0.65, 0.45, 1.0], [0, 800, 2700, 1.6, 1200, 0.7, 0.8, 1.0], [0, 100, 2300, 2.2, 1100, 1.0, 0.5, 0.85]]
         },
         {
             // Armageddon (1999, military theme; rigged 2026-10-11):

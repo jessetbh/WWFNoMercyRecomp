@@ -97,8 +97,8 @@
             "glows": [[0, 600, 2300, 1.5, 1500, 0.4, 0.6, 1.0], [0, 1000, 2500, 1.0, 1300, 0.55, 0.7, 1.0]]
         },
         {
-            // Arena 3 = King of the Ring (KOTR banners, K O R logo with crossed swords).
-            // Truss rig like Raw (key ~1100 + four corner lamps at +-450, the octagonal truss every arena hangs).
+            // v2 (2026-10-12): King of the Ring. Truss rig, cool white. Glows on the set's own lights: blue on the big K and R letters, white on the O above the crossed swords, a purple wash from the truss bridges at the stage lip (the stage rig's purple bridge lights).
+            // Round 2: cool blue-tinted key (the KOTR letters' blue) and stronger, lower letter glows.
             "name": "Arena 3",
             "match": ["55C7DA5B924694AA", "69D625899B81A822", "5772021E5DED4427", "AC589BB88560EE55", "F64F2AB1AAC77735",
                        "4B8F9E127F3BF4B6", "802EA150E030E7B4", "1ACE5C174CE7981A", "536FAC916E903CE1", "BE5C3FE2E095BE82",
@@ -108,11 +108,11 @@
             "radius": 650,
             "shadow": 0.65,
             "characterShadow": 0.4,
-            "color": [0.95, 0.96, 1.0],
-            "outsideDarkness": 0.6,
             "outsideEdge": 500,
             "litAreas": [[0, 2900, 900, 500]],
-            "glows": [[0, 600, 2300, 1.5, 1500, 0.45, 0.4, 1.0], [0, 1000, 2500, 1.0, 1300, 0.7, 0.75, 1.0]]
+            "color": [0.86, 0.9, 1.0],
+            "outsideDarkness": 0.6,
+            "glows": [[-600, 450, 2450, 3.5, 1200, 0.35, 0.5, 1.0], [600, 450, 2450, 3.5, 1200, 0.35, 0.5, 1.0], [0, 700, 2550, 2.0, 1100, 0.9, 0.92, 1.0], [0, 150, 2350, 2.5, 1200, 0.7, 0.4, 1.0]]
         },
         {
             // Arena 4 = SummerSlam (banners; concert stage with speakers and a flood cluster).

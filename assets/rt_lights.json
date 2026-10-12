@@ -220,22 +220,21 @@
             "glows": [[-400, 500, 2300, 1.5, 1300, 1.0, 0.5, 0.15], [400, 500, 2300, 1.5, 1300, 0.3, 0.45, 1.0]]
         },
         {
-            // Raw stage: the entrance set the arena shows at its +Z end (RAW IS WAR titantron, red fist screens, .com truss
-            // arches, a white-blue light wall behind the WWF logo). The stage faces -Z, down the ramp. Rigged 2026-10-11 to match
-            // the arena: a white front spot (key) and overhead wash, red stage lights low at the front corners, a blue-white
-            // backlight from the light wall (shadows fall toward the camera); glows on the fist screens and the light wall.
+            // v2 (2026-10-12): stronger white front spot under the .com arch (the game camera's view), overhead wash, red
+            // stage lights low at the front corners, blue-white backlight from the light wall. Glows: the two red fist
+            // screens, the light wall behind the WWF logo, a white arch lamp over the front of the stage.
             "name": "Raw stage",
             "match": ["8872BE28870ED3BB", "D46A693FAF6A692E", "6CE712BF30D020A2", "2FF8C67E04B231CE", "159DC46C64033604",
                        "8615EE71625C9BB4", "72131F48130A7325", "E541C9B7D2682044", "78AA0299162A4152", "6CCCE076F4940B4F",
                        "40A3B9227A641833", "EF7A47678F3601E5", "13DF6F405931370F"],
-            "lights": [[0, 800, -700, 2, 0.95, 0.97, 1.0], [0, 900, -50, 1.5, 0.95, 0.97, 1.0], [-700, 250, -350, 1, 1.0, 0.25, 0.2], [700, 250, -350, 1, 1.0, 0.25, 0.2], [0, 350, 120, 1, 0.75, 0.85, 1.0]],
+            "lights": [[0, 800, -700, 2.6, 0.95, 0.97, 1.0], [0, 900, -50, 1.5, 0.95, 0.97, 1.0], [-700, 250, -350, 1, 1.0, 0.25, 0.2], [700, 250, -350, 1, 1.0, 0.25, 0.2], [0, 350, 120, 1, 0.75, 0.85, 1.0]],
             "size": 40,
             "radius": 0,
             "falloff": 700,
             "shadow": 0.65,
             "characterShadow": 0.4,
             "outsideDarkness": 0,
-            "glows": [[-850, 450, 120, 1.5, 900, 1.0, 0.2, 0.15], [850, 450, 120, 1.5, 900, 1.0, 0.2, 0.15], [0, 200, 80, 1.5, 600, 0.7, 0.8, 1.0]]
+            "glows": [[-850, 450, 120, 2.0, 1000, 1.0, 0.2, 0.15], [850, 450, 120, 2.0, 1000, 1.0, 0.2, 0.15], [0, 200, 80, 1.8, 700, 0.7, 0.8, 1.0], [0, 500, -250, 1.2, 700, 0.95, 0.97, 1.0]]
         },
         {
             // No Mercy stage: blue-purple floor, blank big screen between two red no mercy screens, truss arches, blue floor lamps,

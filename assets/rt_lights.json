@@ -255,8 +255,8 @@
             "glows": [[-900, 500, 550, 4.5, 1400, 1.0, 0.12, 0.08], [900, 500, 550, 4.5, 1400, 1.0, 0.12, 0.08], [0, 60, 150, 3.0, 1000, 0.45, 0.55, 1.0], [0, 60, -350, 2.0, 900, 1.0, 0.6, 0.3]]
         },
         {
-            // SmackDown stage: blue ribbed tunnel, round SmackDown screen, circular truss with lamps over the front, blue grated floor.
-            // White front spot + four cool lamps on the circular truss; blue tunnel and screen glows.
+            // v2 (2026-10-12): white front spot + four cool lamps on the circular truss (as current); glows: the blue ribbed tunnel, the tunnel mouth, white pools under the truss lamps on the grated floor, the oval SmackDown screen beside the set.
+            // Round 2: the oval isn't traced, so a strong blue pool on the floor under it; white pools under the truss lamps.
             "name": "SmackDown stage",
             "match": ["3B8E1785E47D20C5", "F3AB4C2E7CC3CE79", "A6B5E5C93FE6B3AC", "07A58CDC3CBBDCF4", "7A16FBA11FD3D3E1",
                        "621768B9A298A6C1", "5F0B2AC5FC0B6B3E", "8E51DFF77FC7DC6B", "AD319D7B494C5FF6", "5A70E7856CB6DD35",
@@ -268,7 +268,7 @@
             "shadow": 0.8,
             "characterShadow": 0.5,
             "outsideDarkness": 0,
-            "glows": [[0, 400, 350, 4.0, 1260, 0.3, 0.55, 1.0], [0, 300, 420, 3.0, 840, 0.4, 0.8, 1.0]]
+            "glows": [[0, 400, 350, 4.0, 1260, 0.3, 0.55, 1.0], [0, 300, 420, 3.0, 840, 0.4, 0.8, 1.0], [0, 600, -250, 3.0, 1000, 0.9, 0.95, 1.0], [-900, 60, 450, 4.0, 1000, 0.45, 0.65, 1.0]]
         },
         {
             // King of the Ring stage: huge blue K O R letters and swords, blue spot cones from a top truss, purple truss bridges, light wall.

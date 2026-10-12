@@ -331,19 +331,18 @@
             "glows": [[0, 300, 0, 2.4, 1120, 1.0, 0.65, 0.35], [0, 450, 500, 4.5, 1300, 1.0, 0.97, 0.88], [-450, 220, 600, 3.0, 600, 0.3, 1.0, 0.45], [450, 220, 600, 3.0, 600, 0.3, 1.0, 0.45]]
         },
         {
-            // WrestleMania stage: black stage, logo wall, two angled video screens on trusses.
-            // White front spot + overhead, purple video-screen side light; screen, green logo and white stage glows.
+            // v2 (2026-10-12): black stage, logo wall, two angled video screens on trusses. White front spot + overhead, violet video-screen side light (as current). Glows: both video screens (white-violet, stronger), the small blue-white lamps on the screen trusses, the green WrestleMania logo.
             "name": "WrestleMania stage",
             "match": ["F1DA7270D1548FAB", "BF87AD060CB53A1D", "B83BD87C0493DC0C", "7BAEF3CAC0655F8A", "C63E0CAE5DFAC35F",
                        "73D3E021D139FBC1", "99BC299AF54F8045", "26A2680348393F3B", "6EDD613A9A6EC47A"],
-            "lights": [[0, 750, -700, 3, 1.0, 1.0, 1.0], [0, 750, 200, 1.5, 1.0, 1.0, 1.0], [-800, 300, 300, 1, 0.75, 0.6, 1.0], [800, 300, 300, 1, 0.75, 0.6, 1.0]],
+            "lights": [[0, 750, -700, 3, 1.0, 1.0, 1.0], [0, 750, 200, 1.5, 1.0, 1.0, 1.0], [-800, 300, 300, 1.2, 0.75, 0.6, 1.0], [800, 300, 300, 1.2, 0.75, 0.6, 1.0]],
             "size": 40,
             "radius": 0,
             "falloff": 900,
             "shadow": 0.8,
             "characterShadow": 0.5,
             "outsideDarkness": 0,
-            "glows": [[-850, 300, 350, 3.0, 980, 0.8, 0.55, 1.0], [850, 300, 350, 3.0, 980, 0.8, 0.55, 1.0], [0, 400, 650, 2.0, 840, 0.4, 1.0, 0.5], [0, 200, 100, 2.4, 1120, 1.0, 1.0, 1.0]]
+            "glows": [[-750, 350, 300, 3.6, 1100, 0.85, 0.7, 1.0], [750, 350, 300, 3.6, 1100, 0.85, 0.7, 1.0], [0, 400, 650, 2.0, 840, 0.4, 1.0, 0.5], [0, 120, -100, 2.0, 1000, 0.75, 0.85, 1.0]]
         },
         {
             // Backlash stage: violet truss spade frame around a silver-blue BACKLASH screen, pink floor lamps, violet pools.

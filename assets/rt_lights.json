@@ -60,8 +60,9 @@
             "glows": [[0, 600, 2300, 1.5, 1500, 1.0, 0.18, 0.12], [0, 1000, 2500, 1.0, 1300, 0.75, 0.85, 1.0]]
         },
         {
-            // No Mercy (rigged 2026-10-11):
-            // Truss rig like Raw (key ~1100 + four corner lamps at +-450, the octagonal truss every arena hangs).
+            // v2 (2026-10-12): truss rig, warm white. The set is blue-purple with two red no mercy screens and blue floor
+            // lamps: red glows on the side screens, a blue-white uplight at the stage lip (the floor lamp row), a dim
+            // violet wash on the big screen (as the stage rig).
             "name": "No Mercy",
             "match": ["B8C767E3531D134C", "93977E8730397E6A", "45217E5B80BF6CA6", "487E4E1AEC00FD6F", "94E063689F7E54CF",
                        "AF23672D683643B3", "B880E98B89DC1E45", "09274F937E34EB66", "7CDB9E54ACC83FA7", "E7A7267BEB0C1478",
@@ -71,11 +72,11 @@
             "radius": 650,
             "shadow": 0.65,
             "characterShadow": 0.4,
-            "color": [1.0, 0.96, 0.9],
-            "outsideDarkness": 0.65,
             "outsideEdge": 450,
             "litAreas": [[0, 2900, 900, 500]],
-            "glows": [[0, 600, 2300, 1.5, 1500, 1.0, 0.15, 0.1], [0, 1000, 2500, 1.0, 1300, 1.0, 0.15, 0.1]]
+            "color": [1.0, 0.96, 0.9],
+            "outsideDarkness": 0.65,
+            "glows": [[-650, 500, 2380, 2.5, 1100, 1.0, 0.12, 0.08], [650, 500, 2380, 2.5, 1100, 1.0, 0.12, 0.08], [0, 60, 2350, 2.5, 1200, 0.45, 0.55, 1.0], [0, 900, 2700, 0.8, 1300, 0.6, 0.45, 1.0]]
         },
         {
             // SmackDown (rigged 2026-10-11):
@@ -96,8 +97,8 @@
             "glows": [[0, 600, 2300, 1.5, 1500, 0.4, 0.6, 1.0], [0, 1000, 2500, 1.0, 1300, 0.55, 0.7, 1.0]]
         },
         {
-            // Arena 3 = King of the Ring (KOTR banners, K O R logo with crossed swords).
-            // Truss rig like Raw (key ~1100 + four corner lamps at +-450, the octagonal truss every arena hangs).
+            // v2 (2026-10-12): King of the Ring. Truss rig, cool white. Glows on the set's own lights: blue on the big K and R letters, white on the O above the crossed swords, a purple wash from the truss bridges at the stage lip (the stage rig's purple bridge lights).
+            // Round 2: cool blue-tinted key (the KOTR letters' blue) and stronger, lower letter glows.
             "name": "Arena 3",
             "match": ["55C7DA5B924694AA", "69D625899B81A822", "5772021E5DED4427", "AC589BB88560EE55", "F64F2AB1AAC77735",
                        "4B8F9E127F3BF4B6", "802EA150E030E7B4", "1ACE5C174CE7981A", "536FAC916E903CE1", "BE5C3FE2E095BE82",
@@ -107,11 +108,11 @@
             "radius": 650,
             "shadow": 0.65,
             "characterShadow": 0.4,
-            "color": [0.95, 0.96, 1.0],
-            "outsideDarkness": 0.6,
             "outsideEdge": 500,
             "litAreas": [[0, 2900, 900, 500]],
-            "glows": [[0, 600, 2300, 1.5, 1500, 0.45, 0.4, 1.0], [0, 1000, 2500, 1.0, 1300, 0.7, 0.75, 1.0]]
+            "color": [0.86, 0.9, 1.0],
+            "outsideDarkness": 0.6,
+            "glows": [[-600, 450, 2450, 3.5, 1200, 0.35, 0.5, 1.0], [600, 450, 2450, 3.5, 1200, 0.35, 0.5, 1.0], [0, 700, 2550, 2.0, 1100, 0.9, 0.92, 1.0], [0, 150, 2350, 2.5, 1200, 0.7, 0.4, 1.0]]
         },
         {
             // Arena 4 = SummerSlam (banners; concert stage with speakers and a flood cluster).
@@ -132,8 +133,7 @@
             "glows": [[0, 600, 2300, 1.5, 1500, 0.35, 0.45, 1.0], [0, 1000, 2500, 1.0, 1300, 1.0, 0.95, 0.85]]
         },
         {
-            // Survivor Series (rigged 2026-10-11):
-            // Truss rig like Raw (key ~1100 + four corner lamps at +-450, the octagonal truss every arena hangs).
+            // v2 (2026-10-12): truss rig, cool white. The purple truss tunnel's own sources: the red 1 disc at its back (red glow centered on it), violet floor pools and the row of white floor lamps at the stage lip (as the stage rig), a dim violet wash up the truss.
             "name": "Survivor Series",
             "match": ["3CDE9AE130CAD6A8", "6BA3CF4C85877B2F", "2CA785A9EC16A198", "672DE8DE683C47E8", "7B4DE0BC294295BA",
                        "166CA43724E80BC3", "82C57C2955053017", "395186E01943BCC3", "D56DA4CE8FA1A4AF", "EAA8CB3E44DF5DA1",
@@ -143,11 +143,11 @@
             "radius": 650,
             "shadow": 0.65,
             "characterShadow": 0.4,
-            "color": [0.94, 0.96, 1.0],
-            "outsideDarkness": 0.6,
             "outsideEdge": 500,
             "litAreas": [[0, 2900, 900, 500]],
-            "glows": [[0, 600, 2300, 1.5, 1500, 1.0, 0.15, 0.1], [0, 1000, 2500, 1.0, 1300, 0.6, 0.5, 1.0]]
+            "color": [0.94, 0.96, 1.0],
+            "outsideDarkness": 0.6,
+            "glows": [[0, 950, 2750, 2.2, 1300, 1.0, 0.12, 0.08], [0, 80, 2400, 2.0, 1100, 0.7, 0.45, 1.0], [0, 120, 2280, 1.6, 1000, 0.95, 0.95, 1.0], [0, 600, 2550, 1.0, 1300, 0.75, 0.5, 1.0]]
         },
         {
             // Arena 6 = Royal Rumble (banners; the alley stage with the taxi).
@@ -167,8 +167,7 @@
             "glows": [[0, 600, 2300, 1.5, 1500, 1.0, 0.75, 0.3], [0, 1000, 2500, 1.0, 1300, 1.0, 0.6, 0.25]]
         },
         {
-            // WrestleMania (2000, rigged 2026-10-11):
-            // Truss rig like Raw (key ~1100 + four corner lamps at +-450, the octagonal truss every arena hangs).
+            // v2 (2026-10-12): WrestleMania 2000. Truss rig, neutral white. The set's sources: the two angled video screens on their trusses (white-violet light, as the stage rig's video-screen side light), the green WrestleMania logo wall between them, a white wash at the stage lip down the ramp.
             "name": "WrestleMania",
             "match": ["7E4D10DCE125E06C", "01B3A2E492F5B70D", "85611432F042853C", "A1BB20A18DAA02DD", "B306DECB35A1EC35",
                        "09F193E81FF0FC7F", "3BEA50215FFA69C9", "5E0669B04DD61F51"],
@@ -177,15 +176,15 @@
             "radius": 650,
             "shadow": 0.65,
             "characterShadow": 0.4,
-            "color": [1.0, 1.0, 1.0],
-            "outsideDarkness": 0.5,
             "outsideEdge": 550,
             "litAreas": [[0, 2900, 900, 500]],
-            "glows": [[0, 600, 2300, 1.5, 1500, 0.4, 1.0, 0.5], [0, 1000, 2500, 1.0, 1300, 0.95, 0.97, 1.0]]
+            "color": [1.0, 1.0, 1.0],
+            "outsideDarkness": 0.5,
+            "glows": [[-650, 550, 2400, 2.0, 1100, 0.85, 0.75, 1.0], [650, 550, 2400, 2.0, 1100, 0.85, 0.75, 1.0], [0, 500, 2700, 1.6, 1100, 0.4, 1.0, 0.5], [0, 100, 2300, 1.6, 1100, 0.95, 0.97, 1.0]]
         },
         {
-            // Backlash (rigged 2026-10-11):
-            // Truss rig like Raw (key ~1100 + four corner lamps at +-450, the octagonal truss every arena hangs).
+            // v2 (2026-10-12): truss rig, cool white. The set's sources: the violet spade-shaped truss frame (a glow on each side), the silver-blue BACKLASH screen in its middle, the pink floor lamps at the stage lip (as the stage rig).
+            // Round 2: violet-tinted key and much stronger violet frame glows (the spade truss dominates).
             "name": "Backlash",
             "match": ["06A1220B5276422E", "CC7133748F74A9BE", "12CE2AF6036D1B01", "E58A638EE6257765", "E8598F49A1A3593D",
                        "BED5E6F2F8FEA4FE", "4AA55108F851632D", "1DF3B0E28AAE2308", "0CFA9F65577B952A", "E4F7761EBC83E853",
@@ -195,11 +194,11 @@
             "radius": 650,
             "shadow": 0.65,
             "characterShadow": 0.4,
-            "color": [0.94, 0.96, 1.0],
-            "outsideDarkness": 0.6,
             "outsideEdge": 500,
             "litAreas": [[0, 2900, 900, 500]],
-            "glows": [[0, 600, 2300, 1.5, 1500, 0.6, 0.45, 1.0], [0, 1000, 2500, 1.0, 1300, 0.7, 0.8, 1.0]]
+            "color": [0.92, 0.9, 1.0],
+            "outsideDarkness": 0.6,
+            "glows": [[-600, 500, 2400, 3.5, 1300, 0.65, 0.45, 1.0], [600, 500, 2400, 3.5, 1300, 0.65, 0.45, 1.0], [0, 800, 2700, 1.6, 1200, 0.7, 0.8, 1.0], [0, 100, 2300, 2.2, 1100, 1.0, 0.5, 0.85]]
         },
         {
             // Armageddon (1999, military theme; rigged 2026-10-11):
@@ -220,42 +219,42 @@
             "glows": [[-400, 500, 2300, 1.5, 1300, 1.0, 0.5, 0.15], [400, 500, 2300, 1.5, 1300, 0.3, 0.45, 1.0]]
         },
         {
-            // Raw stage: the entrance set the arena shows at its +Z end (RAW IS WAR titantron, red fist screens, .com truss
-            // arches, a white-blue light wall behind the WWF logo). The stage faces -Z, down the ramp. Rigged 2026-10-11 to match
-            // the arena: a white front spot (key) and overhead wash, red stage lights low at the front corners, a blue-white
-            // backlight from the light wall (shadows fall toward the camera); glows on the fist screens and the light wall.
+            // v2 (2026-10-12): stronger white front spot under the .com arch (the game camera's view), overhead wash, red
+            // stage lights low at the front corners, blue-white backlight from the light wall. Glows: the two red fist
+            // screens, the light wall behind the WWF logo, a white arch lamp over the front of the stage.
             "name": "Raw stage",
             "match": ["8872BE28870ED3BB", "D46A693FAF6A692E", "6CE712BF30D020A2", "2FF8C67E04B231CE", "159DC46C64033604",
                        "8615EE71625C9BB4", "72131F48130A7325", "E541C9B7D2682044", "78AA0299162A4152", "6CCCE076F4940B4F",
                        "40A3B9227A641833", "EF7A47678F3601E5", "13DF6F405931370F"],
-            "lights": [[0, 800, -700, 2, 0.95, 0.97, 1.0], [0, 900, -50, 1.5, 0.95, 0.97, 1.0], [-700, 250, -350, 1, 1.0, 0.25, 0.2], [700, 250, -350, 1, 1.0, 0.25, 0.2], [0, 350, 120, 1, 0.75, 0.85, 1.0]],
+            "lights": [[0, 800, -700, 2.6, 0.95, 0.97, 1.0], [0, 900, -50, 1.5, 0.95, 0.97, 1.0], [-700, 250, -350, 1, 1.0, 0.25, 0.2], [700, 250, -350, 1, 1.0, 0.25, 0.2], [0, 350, 120, 1, 0.75, 0.85, 1.0]],
             "size": 40,
             "radius": 0,
             "falloff": 700,
             "shadow": 0.65,
             "characterShadow": 0.4,
             "outsideDarkness": 0,
-            "glows": [[-850, 450, 120, 1.5, 900, 1.0, 0.2, 0.15], [850, 450, 120, 1.5, 900, 1.0, 0.2, 0.15], [0, 200, 80, 1.5, 600, 0.7, 0.8, 1.0]]
+            "glows": [[-850, 450, 120, 2.0, 1000, 1.0, 0.2, 0.15], [850, 450, 120, 2.0, 1000, 1.0, 0.2, 0.15], [0, 200, 80, 1.8, 700, 0.7, 0.8, 1.0], [0, 500, -250, 1.2, 700, 0.95, 0.97, 1.0]]
         },
         {
-            // No Mercy stage: blue-purple floor, blank big screen between two red no mercy screens, truss arches, blue floor lamps,
-            // wooden side ramps. Front spot + overhead (warm white), low blue floor lights throw long shadows up the set; red screen glows, orange ramp glows.
+            // v2 (2026-10-12): brighter warm-white front spot so wrestlers read from the game camera; blue uplights from
+            // the floor lamp row at the stage lip; red glows strong enough to color the side truss around the two
+            // no mercy screens; orange from the ramp-side lamps (as the arena's view of the set).
             "name": "No Mercy stage",
             "match": ["7BB9311DABD24FAD", "4DF926BA817FD43F", "9C6A14C9CD17C5F3", "D7430B7AB44D6852", "F4C35B95E429628D",
                        "2576975831701A2F", "207D12A28219D4DE", "204A59CFAC548417", "B28F57FF91ECEAD0", "BA60F927677D8053",
                        "2F4AB537E5604025", "312C0603CECAE231"],
-            "lights": [[0, 800, -500, 3, 1.0, 0.96, 0.9], [0, 900, 250, 1.5, 1.0, 0.96, 0.9], [-600, 120, 100, 1, 0.5, 0.6, 1.0], [600, 120, 100, 1, 0.5, 0.6, 1.0]],
+            "lights": [[0, 800, -600, 3.5, 1.0, 0.97, 0.92], [0, 900, 250, 1.5, 1.0, 0.97, 0.92], [-500, 80, 150, 1.2, 0.45, 0.55, 1.0], [500, 80, 150, 1.2, 0.45, 0.55, 1.0]],
             "size": 40,
             "radius": 0,
-            "falloff": 800,
-            "shadow": 0.8,
+            "falloff": 900,
+            "shadow": 0.75,
             "characterShadow": 0.5,
             "outsideDarkness": 0,
-            "glows": [[-900, 500, 550, 3.0, 1260, 1.0, 0.15, 0.1], [900, 500, 550, 3.0, 1260, 1.0, 0.15, 0.1], [-800, 60, -300, 2.0, 840, 1.0, 0.6, 0.3], [800, 60, -300, 2.0, 840, 1.0, 0.6, 0.3]]
+            "glows": [[-900, 500, 550, 4.5, 1400, 1.0, 0.12, 0.08], [900, 500, 550, 4.5, 1400, 1.0, 0.12, 0.08], [0, 60, 150, 3.0, 1000, 0.45, 0.55, 1.0], [0, 60, -350, 2.0, 900, 1.0, 0.6, 0.3]]
         },
         {
-            // SmackDown stage: blue ribbed tunnel, round SmackDown screen, circular truss with lamps over the front, blue grated floor.
-            // White front spot + four cool lamps on the circular truss; blue tunnel and screen glows.
+            // v2 (2026-10-12): white front spot + four cool lamps on the circular truss (as current); glows: the blue ribbed tunnel, the tunnel mouth, white pools under the truss lamps on the grated floor, the oval SmackDown screen beside the set.
+            // Round 2: the oval isn't traced, so a strong blue pool on the floor under it; white pools under the truss lamps.
             "name": "SmackDown stage",
             "match": ["3B8E1785E47D20C5", "F3AB4C2E7CC3CE79", "A6B5E5C93FE6B3AC", "07A58CDC3CBBDCF4", "7A16FBA11FD3D3E1",
                        "621768B9A298A6C1", "5F0B2AC5FC0B6B3E", "8E51DFF77FC7DC6B", "AD319D7B494C5FF6", "5A70E7856CB6DD35",
@@ -267,11 +266,10 @@
             "shadow": 0.8,
             "characterShadow": 0.5,
             "outsideDarkness": 0,
-            "glows": [[0, 400, 350, 4.0, 1260, 0.3, 0.55, 1.0], [0, 300, 420, 3.0, 840, 0.4, 0.8, 1.0]]
+            "glows": [[0, 400, 350, 4.0, 1260, 0.3, 0.55, 1.0], [0, 300, 420, 3.0, 840, 0.4, 0.8, 1.0], [0, 600, -250, 3.0, 1000, 0.9, 0.95, 1.0], [-900, 60, 450, 4.0, 1000, 0.45, 0.65, 1.0]]
         },
         {
-            // King of the Ring stage: huge blue K O R letters and swords, blue spot cones from a top truss, purple truss bridges, light wall.
-            // White front spot, blue top-truss spots, purple bridge lights; blue letter, white light-wall and purple bridge glows.
+            // v2 (2026-10-12): King of the Ring stage. White front spot, blue top-truss spots, purple bridge lights (as current). Glows split per source: blue on the K and on the R, white from the light wall behind the WWF logo, a purple wash between the truss bridges.
             "name": "Arena 3 stage",
             "match": ["019747B3588BBD16", "9381993091A65525", "9856F11763B95CEC", "9604BE13D07EB064", "25033D79641B59E7",
                        "ED026F189A4197B0", "DE26710F2444A081", "646A4A00AC3865F9", "7C27AC8D05669A2F", "0B3A7EAC53DD3FDF",
@@ -283,7 +281,7 @@
             "shadow": 0.8,
             "characterShadow": 0.5,
             "outsideDarkness": 0,
-            "glows": [[0, 700, 600, 4.0, 1400, 0.35, 0.5, 1.0], [0, 250, 650, 3.0, 840, 0.85, 0.9, 1.0], [-600, 200, 50, 2.4, 700, 0.7, 0.35, 1.0], [600, 200, 50, 2.4, 700, 0.7, 0.35, 1.0]]
+            "glows": [[-550, 750, 650, 3.5, 1100, 0.35, 0.5, 1.0], [550, 750, 650, 3.5, 1100, 0.35, 0.5, 1.0], [0, 250, 650, 3.0, 840, 0.85, 0.9, 1.0], [0, 180, 50, 2.6, 900, 0.7, 0.35, 1.0]]
         },
         {
             // SummerSlam stage: long blue stage between amp/speaker stacks, a cluster of six big floods at the back, small floor lamps.
@@ -302,8 +300,7 @@
             "glows": [[0, 800, 650, 4.0, 1820, 1.0, 0.95, 0.85], [0, 300, 200, 3.0, 1260, 0.4, 0.5, 1.0], [-650, 300, 300, 2.4, 840, 0.7, 0.3, 1.0], [650, 300, 300, 2.4, 840, 0.7, 0.3, 1.0]]
         },
         {
-            // Survivor Series stage: purple truss tunnel, red 1 disc at the back, white floor lamps, violet floor pools.
-            // Cool front spot, white backlight from the lamp row, purple truss lights; red disc, violet floor and white glows.
+            // v2 (2026-10-12): purple truss tunnel. Cool front spot, white backlight from the lamp row, purple truss lights (as current). Glows: the red 1 disc (lower, no clipping up close), violet floor pools, the white floor-lamp rows along both stage edges.
             "name": "Survivor Series stage",
             "match": ["D843CF2B1A0958B9", "39F03E93AD5A1052", "6DE07349BF77AAB0", "EBE6A84A74BD240F", "2BBF7469B5665F37",
                        "E83093B984B3950E", "8165519FEF79174F", "AB1E7A9B1DFA253E", "12E68FB022AB71C1", "B3EBFDDA80C9CDF6",
@@ -315,11 +312,11 @@
             "shadow": 0.8,
             "characterShadow": 0.5,
             "outsideDarkness": 0,
-            "glows": [[0, 650, 750, 3.0, 1260, 1.0, 0.15, 0.1], [-500, 150, 200, 3.0, 840, 0.7, 0.45, 1.0], [500, 150, 200, 3.0, 840, 0.7, 0.45, 1.0], [0, 300, 600, 2.4, 980, 0.95, 0.95, 1.0]]
+            "glows": [[0, 650, 750, 2.2, 1200, 1.0, 0.15, 0.1], [0, 120, 250, 3.0, 1000, 0.7, 0.45, 1.0], [-650, 100, -50, 2.4, 800, 0.95, 0.95, 1.0], [650, 100, -50, 2.4, 800, 0.95, 0.95, 1.0]]
         },
         {
-            // Royal Rumble stage: a New York alley (graffiti brick, shutter, yellow taxi over the royalrumble sign, EXIT signs).
-            // Night: two sodium-orange street lamps and a cool moonlight fill; taxi headlight and orange wall glows.
+            // v2 (2026-10-12): Royal Rumble NYC alley at night. Two sodium-orange street lamps and a cool moonlight fill (as current). Glows: sodium wash on the walls, the taxi's white headlights shining down the alley, the two green EXIT signs at the alley mouth.
+            // Round 2: the taxi's headlights shine hard down the alley; green EXIT signs lower and stronger.
             "name": "Arena 6 stage",
             "match": ["B60A7796C3BB480F", "8C90AA50D44A150C", "04BFF06455542E85", "7DABA82EAD96F35D", "B066E790681AE4A6",
                        "0BD2BB8554DBBB28", "B2E13E594EBF680E", "00AB1FD3456900C8", "7A30C50C979BBAB2", "337BA2A0FA0DCCCE",
@@ -331,26 +328,24 @@
             "shadow": 0.8,
             "characterShadow": 0.5,
             "outsideDarkness": 0,
-            "glows": [[0, 700, 600, 2.0, 980, 1.0, 0.95, 0.8], [0, 300, 0, 2.4, 1120, 1.0, 0.65, 0.35]]
+            "glows": [[0, 300, 0, 2.4, 1120, 1.0, 0.65, 0.35], [0, 450, 500, 4.5, 1300, 1.0, 0.97, 0.88], [-450, 220, 600, 3.0, 600, 0.3, 1.0, 0.45], [450, 220, 600, 3.0, 600, 0.3, 1.0, 0.45]]
         },
         {
-            // WrestleMania stage: black stage, logo wall, two angled video screens on trusses.
-            // White front spot + overhead, purple video-screen side light; screen, green logo and white stage glows.
+            // v2 (2026-10-12): black stage, logo wall, two angled video screens on trusses. White front spot + overhead, violet video-screen side light (as current). Glows: both video screens (white-violet, stronger), the small blue-white lamps on the screen trusses, the green WrestleMania logo.
             "name": "WrestleMania stage",
             "match": ["F1DA7270D1548FAB", "BF87AD060CB53A1D", "B83BD87C0493DC0C", "7BAEF3CAC0655F8A", "C63E0CAE5DFAC35F",
                        "73D3E021D139FBC1", "99BC299AF54F8045", "26A2680348393F3B", "6EDD613A9A6EC47A"],
-            "lights": [[0, 750, -700, 3, 1.0, 1.0, 1.0], [0, 750, 200, 1.5, 1.0, 1.0, 1.0], [-800, 300, 300, 1, 0.75, 0.6, 1.0], [800, 300, 300, 1, 0.75, 0.6, 1.0]],
+            "lights": [[0, 750, -700, 3, 1.0, 1.0, 1.0], [0, 750, 200, 1.5, 1.0, 1.0, 1.0], [-800, 300, 300, 1.2, 0.75, 0.6, 1.0], [800, 300, 300, 1.2, 0.75, 0.6, 1.0]],
             "size": 40,
             "radius": 0,
             "falloff": 900,
             "shadow": 0.8,
             "characterShadow": 0.5,
             "outsideDarkness": 0,
-            "glows": [[-850, 300, 350, 3.0, 980, 0.8, 0.55, 1.0], [850, 300, 350, 3.0, 980, 0.8, 0.55, 1.0], [0, 400, 650, 2.0, 840, 0.4, 1.0, 0.5], [0, 200, 100, 2.4, 1120, 1.0, 1.0, 1.0]]
+            "glows": [[-750, 350, 300, 3.6, 1100, 0.85, 0.7, 1.0], [750, 350, 300, 3.6, 1100, 0.85, 0.7, 1.0], [0, 400, 650, 2.0, 840, 0.4, 1.0, 0.5], [0, 120, -100, 2.0, 1000, 0.75, 0.85, 1.0]]
         },
         {
-            // Backlash stage: violet truss spade frame around a silver-blue BACKLASH screen, pink floor lamps, violet pools.
-            // Cool front spot + overhead, violet side lights; screen, violet floor and white center glows.
+            // v2 (2026-10-12): violet spade truss frame around the silver-blue BACKLASH screen. Cool front spot + overhead, violet side lights (as current). Glows: the screen, the violet frame, and pink from the rows of small floor lamps along both stage edges.
             "name": "Backlash stage",
             "match": ["2D74256D889B8DB4", "C04B216C87591DB1", "00BBC651E3A22F2D", "2DDAB465BD6E8321", "3AED15F0D8B8F261",
                        "BC7120EA02FE6AF6", "C9759ED0212B0054", "6EDF0AA262304C88", "75F742565D55E701", "357018D89B45851E"],
@@ -361,7 +356,7 @@
             "shadow": 0.8,
             "characterShadow": 0.5,
             "outsideDarkness": 0,
-            "glows": [[0, 450, 600, 3.0, 1120, 0.75, 0.82, 1.0], [-600, 150, 250, 2.6, 840, 0.65, 0.4, 1.0], [600, 150, 250, 2.6, 840, 0.65, 0.4, 1.0], [0, 100, 0, 2.0, 700, 1.0, 1.0, 1.0]]
+            "glows": [[0, 450, 600, 3.0, 1120, 0.75, 0.82, 1.0], [0, 700, 300, 2.0, 1100, 0.65, 0.4, 1.0], [-550, 80, -50, 2.6, 800, 1.0, 0.5, 0.85], [550, 80, -50, 2.6, 800, 1.0, 0.5, 0.85]]
         },
         {
             // Armageddon stage: a military base (helicopter, armored car, sandbags, orange-lit tarp, purple walls, red/blue beacon).
@@ -461,20 +456,22 @@
             "glows": [[-427, 280, 0, 1.4, 520, 0.88, 1.0, 0.92], [0, 280, 0, 1.4, 520, 0.88, 1.0, 0.92], [427, 280, 0, 1.4, 520, 0.88, 1.0, 0.92], [430, 110, -60, 3.0, 650, 1.0, 0.45, 0.15]]
         },
         {
-            // Locker room: white walls, lockers, a folding table. Neutral cool fluorescent ceiling lights. Scene-anchored.
+            // v2 (2026-10-12): lit by its ceiling fluorescents: three cool-white lights along the room, the room slightly darker (0.3) so the lockers keep their depth, floor pools under two fixtures.
             "name": "Locker room",
             "match": ["3CDEB0EAEAEBB559", "1E48F556A30B29B0", "A2741F043655BD52", "64CA84AD72021E13", "3262D033FE20D4CD",
                        "F537F54207B3A588", "3FAA42A630FCBA28", "167013C7DB55C49A", "C83279475B947C77", "5920C4A07111D101",
                        "D69EC30EB178A7E5", "BCE3982547C18636", "9E46AC65DAA9410A", "E7293B51CDEE8E58", "17F28C48AABF6F2E"],
             "anchor": "scene",
             "lights": [[-380, 314, 0, 1], [0, 314, 0, 1], [380, 314, 0, 1]],
-            "color": [0.95, 0.98, 1.0],
-            "size": 40,
-            "radius": 0,
-            "falloff": 376,
-            "shadow": 0.8,
+            "color": [0.93, 0.97, 1.0],
+            "size": 35,
+            "radius": 1,
+            "falloff": 330,
+            "shadow": 0.85,
             "characterShadow": 0.45,
-            "outsideDarkness": 0
+            "outsideDarkness": 0.3,
+            "outsideEdge": 1,
+            "glows": [[-200, 300, 0, 1.2, 450, 0.93, 0.97, 1.0], [200, 300, 0, 1.2, 450, 0.93, 0.97, 1.0]]
         }
     ]
 }

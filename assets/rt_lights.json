@@ -472,6 +472,23 @@
             "outsideDarkness": 0.3,
             "outsideEdge": 1,
             "glows": [[-200, 300, 0, 1.2, 450, 0.93, 0.97, 1.0], [200, 300, 0, 1.2, 450, 0.93, 0.97, 1.0]]
+        },
+        {
+            // Menu backdrop (2026-10-13): the backstage set behind the main menu and the Exhibition screens (chairs, ladder,
+            // chain-link fence) sits under translucent menu panels, so its ray-traced shadows read as dark shapes on the menus.
+            // No shadows here (world or wrestler) and no outside darkness: the menus look as they do with RT off. Matched on 12
+            // of the set's textures that no arena, stage or backstage room uses (checked against every logged No Mercy scene).
+            "name": "Menus",
+            "match": ["866E42177911B83C", "A70F700B8EA9B4DB", "FDED2030A9610795", "050F7061BCEA4045", "F41373121E7C32EC",
+                       "6409E3405E21BCFC", "793CFE6CA325803F", "A28A746E4CFCAAB8", "603BB6FF13178047", "6CD352496C39A39A",
+                       "97906043D8E3CD4F", "9984D666CCD538EF"],
+            "anchor": "scene",
+            "lights": [[0, 600, 0, 1]],
+            "size": 400,
+            "radius": 1,
+            "shadow": 0,
+            "characterShadow": 0,
+            "outsideDarkness": 0
         }
     ]
 }

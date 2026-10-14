@@ -204,6 +204,9 @@ See [BUILDING.md](BUILDING.md).
 
 * [Wiseguy](https://github.com/Mr-Wiseguy) and
   [DarioSamo](https://github.com/DarioSamo) for creating N64Recomp and RT64.
+* [Gadge64](https://github.com/Gadge64) for the frame interpolation behind the 60 and 120 fps
+  Framerate options ([#5](https://github.com/jessetbh/WWFNoMercyRecomp/pull/5)), which the
+  whole family of ports now uses.
 * [RevoSucks](https://github.com/RevoSucks) and the Bomberman Hero: Recompiled
   project, the template for this port's sister projects and therefore for this one.
 * The Zelda64Recomp team for establishing the conventions the whole recomp ecosystem

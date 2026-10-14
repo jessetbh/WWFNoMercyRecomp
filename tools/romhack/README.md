@@ -6,34 +6,31 @@ ROM when the game starts. No ROM data is distributed.
 
 ## Making one
 
+The packager is shared by all six AKI ports and lives in
+[AKI Mods](https://github.com/jessetbh/AkiMods) (`tools/romhack/make_patch_mod.py`, with its own
+README and tests). `make_patch_mod.py` here is a wrapper that runs it from this repository root;
+it finds AKI Mods through `AKIMODS_DIR` or a sibling `..\AkiMods` checkout.
+
 ```powershell
-python tools\romhack\make_patch_mod.py --base vpw2.z64 --hack my_hack.z64 `
-    --game-id vpw2 --id my_hack --name "My Hack" --version 1.0.0 --author me `
-    --out my_hack.nrm
+python tools\romhack\make_patch_mod.py --base nomercy.z64 --hack my_hack.z64 `
+    --game-id wwfnomercy --id my_hack --name "My Hack" --out my_hack.nrm
 ```
 
-Both ROMs must be big-endian `.z64`. Without `--out` the tool only prints the report.
+## Repaired functions
 
-The report lists every recompiled function the hack changes, read from the section and
-function tables in `RecompiledFuncs/recomp_overlays.inl`:
+`list_repaired_functions.py` writes `RecompiledFuncs/repaired_functions.txt`: the functions this
+port's post-recompile pipeline or hand-edits changed. The live recompiler that runs a patch mod's
+changed functions has none of those repairs, so:
 
-- **Data-only** (no changed functions): works on any runtime with ROM-patch mods
-  (N64ModernRuntime since Nov 2025, PR #126).
-- **Changed functions**: needs the `wcw-romhack` runtime, which recompiles those functions
-  from the patched ROM with the live recompiler at load time (`[romhack]` lines in stderr
-  list them). A plain runtime keeps running the stock code for them, and the hack usually
-  crashes.
-- **Changed bytes outside functions**, or **ESCAPES** lines (a changed function branches or
-  calls somewhere that is neither inside it nor a known function start): the hack added code
-  or restructured code across function boundaries. Patch mods can't run that, so the tool
-  won't write the mod (`--force` overrides); it needs a full recompile of the hacked ROM (the
-  VPW2 Freem `exp/freem` method). Example: one VPW2 English patch rewrites
-  func_80007070..func_80007238 into new subroutines; the runtime refuses it at load with
-  "Invalid ROM patch".
+- the packager marks such a function REPAIRED in its report;
+- the build embeds the list (CMakeLists.txt generates `repaired_functions.cpp`) and registers it
+  with the runtime at startup, which logs `[romhack] <mod>: 0x... was repaired by the port
+  offline; recompiling it from the patch drops that repair` when a patch mod changes one. The
+  policy is Warn (the mod still loads); `recomp::mods::RepairedFunctionPolicy::Refuse` would
+  refuse it.
 
-Only one ROM-patch mod can be enabled at a time. On the `wcw-romhack` runtime a patch mod's
-saves go to `saves/<mod id>/`, apart from the stock game's (a plain runtime shares them, so a
-hack that changes the save layout could damage them).
+CI runs `list_repaired_functions.py` after the pipeline, so release builds carry a current list.
+Run it yourself after regenerating `RecompiledFuncs/` (then re-run CMake's configure step).
 
 ## Verified
 

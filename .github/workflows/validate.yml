@@ -109,6 +109,9 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python tools/audit_coresidency.py
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          # The functions the pipeline changed, so the runtime can warn when a ROM-patch mod changes one.
+          python tools/romhack/list_repaired_functions.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Build NoMercyRecompiled
         run: |
           $cpuCores = (Get-CimInstance -ClassName Win32_Processor).NumberOfLogicalProcessors

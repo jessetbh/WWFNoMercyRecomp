@@ -31,6 +31,7 @@ sequel, so that project is this one's closest reference.
 ## Table of Contents
 * [System Requirements](#system-requirements)
 * [Features](#features)
+* [Compared with Emulation](#compared-with-emulation)
 * [FAQ](#faq)
 * [Known Issues](#known-issues)
 * [Lighting](#lighting-ray-tracing)
@@ -67,6 +68,21 @@ AMD Bulldozer and newer).
   display; Auto leaves the CRT filter headroom for a full-strength phosphor mask
 * Mods menu with a bundled free camera, cheats and a Quick Match testing tool (see
   [Mods and ROM Hacks](#mods-and-rom-hacks))
+
+## Compared with Emulation
+
+What the port takes care of that emulator setups for this game often need fiddling for:
+
+* **No plugins or emulator settings.** One renderer (RT64) is built in: there is nothing to pick, tune or swap
+  when something looks wrong.
+* **Widescreen, 60/120 fps and high resolution are built in**, not emulator-specific hacks.
+* **Saves are just files.** Flash cartridge saves are written automatically to
+  `%LOCALAPPDATA%\NoMercyRecompiled\saves\` (or next to the exe in portable mode), with a backup copy. No save states or
+  pak images to manage.
+* **Controls set up for this game**, rebindable in the game's own menu, for keyboard and controllers, with rumble.
+* **ROM hacks without a special setup.** Many hacks run as patch mods on top of your clean ROM, switched on in
+  the Mods menu, instead of needing a particular emulator version, plugin and settings (see
+  [Mods and ROM Hacks](#mods-and-rom-hacks)).
 
 ## Planned Features
 
@@ -112,6 +128,12 @@ in the same app folder.
 Yes — place a file named `portable.txt` in the same folder as the executable and
 saves, config files, and the stored ROM will be kept next to the executable instead.
 
+#### Can I mod the game?
+
+Yes: the **Mods** menu (Settings → Mods) installs, configures and switches `.nrm` mods, and many ROM hacks run as
+patch mods. A free camera (F6), cheats and a Quick Match testing tool come bundled. See
+[Mods and ROM Hacks](#mods-and-rom-hacks).
+
 ## Known Issues
 
 This is a beta. Known rough edges:
@@ -123,6 +145,7 @@ This is a beta. Known rough edges:
   intake by design.
 * **Ray tracing at Quality or Ultra with 60/120 fps is very demanding** in this game and can slow it down
   on mid-range GPUs. Use Performance or Balanced at 60/120 fps, or 30 fps for Quality/Ultra.
+* The old **HDR Brightness** setting is replaced by **HDR Picture**; it starts on Auto.
 * Ray tracing, frame interpolation, the CRT filter and HDR are experimental. If something looks wrong,
   turn the feature off and please report it with your log file
   (`%LOCALAPPDATA%\NoMercyRecompiled\NoMercyRecompiled.log`).

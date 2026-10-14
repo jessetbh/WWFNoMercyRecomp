@@ -116,8 +116,6 @@ saves, config files, and the stored ROM will be kept next to the executable inst
 
 This is a beta. Known rough edges:
 
-* **Multi-controller sessions** are still being stabilized and can crash; single
-  controller (or keyboard) play is solid.
 * First launch may pause briefly while shaders compile for your GPU.
 * Only the USA Rev 1 ROM is accepted (see the FAQ) — other dumps are rejected at
   intake by design.

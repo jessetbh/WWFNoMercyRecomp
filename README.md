@@ -33,6 +33,7 @@ sequel, so that project is this one's closest reference.
 * [Features](#features)
 * [FAQ](#faq)
 * [Known Issues](#known-issues)
+* [Lighting](#lighting-ray-tracing)
 * [Mods and ROM Hacks](#mods-and-rom-hacks)
 * [Building](#building)
 * [Libraries Used and Projects Referenced](#libraries-used-and-projects-referenced)
@@ -56,13 +57,20 @@ AMD Bulldozer and newer).
 * In-game config menus with full input rebinding for keyboard and controller
 * Default mappings tailored to the AKI control scheme (d-pad movement, analog taunts)
 * Flash cartridge save emulation with automatic persistence, plus rumble
+* Smoother motion (Experimental): 60 and 120 fps through frame interpolation (Settings → Graphics → Framerate)
+* Ray tracing (Experimental): real shadows from the arena lights, ambient occlusion, and a lighting rig for
+  every arena, every entrance stage and the five backstage areas, which you can change yourself (see [Lighting](#lighting-ray-tracing)); needs D3D12 and a DirectX
+  Raytracing 1.1 GPU
+* CRT filter (Experimental): Composite, S-Video, RF or RGB signal, USA or Japan TV colors, and an optional CRT Beam
+  Simulator (V-Sync and a 120 Hz+ display)
+* HDR (Experimental): **HDR Picture** (Auto, Brighter, Balanced, CRT Detail, Custom) sets the brightness for your
+  display; Auto leaves the CRT filter headroom for a full-strength phosphor mask
+* Mods menu with a bundled free camera, cheats and a Quick Match testing tool (see
+  [Mods and ROM Hacks](#mods-and-rom-hacks))
 
 ## Planned Features
 
-* High framerate support (frame interpolation), pending the family's
-  matrix-group work
 * Linux support
-* Mod support
 
 ## FAQ
 
@@ -113,47 +121,184 @@ This is a beta. Known rough edges:
 * First launch may pause briefly while shaders compile for your GPU.
 * Only the USA Rev 1 ROM is accepted (see the FAQ) — other dumps are rejected at
   intake by design.
+* **Ray tracing at Quality or Ultra with 60/120 fps is very demanding** in this game and can slow it down
+  on mid-range GPUs. Use Performance or Balanced at 60/120 fps, or 30 fps for Quality/Ultra.
+* Ray tracing, frame interpolation, the CRT filter and HDR are experimental. If something looks wrong,
+  turn the feature off and please report it with your log file
+  (`%LOCALAPPDATA%\NoMercyRecompiled\NoMercyRecompiled.log`).
 
 Please report anything else through the issue tracker.
+
+## Lighting (Ray Tracing)
+
+With Ray Tracing on, the lights come from `assets\rt_lights.json` in the game's folder (next to
+`NoMercyRecompiled.exe`; for AKI Launcher installs, the game's install folder). You can edit it with any text editor while
+the game runs: the game reloads it within a second, so you see each change straight away.
+
+The file has three parts:
+
+- `"default"`: the rig for any scene without its own preset.
+- `"room"`: the generated fallback for small rooms without a preset (ceiling lights spread over the room).
+- `"venues"`: one preset per venue. A venue is recognized by its `"match"` list of texture hashes (the textures
+  it draws); a preset only changes the fields it sets, the rest come from `"default"`.
+
+The main fields (distances are in game units, Y is up, and in arenas `[0, 0, 0]` is the middle of the ring):
+
+| Field | What it does |
+|---|---|
+| `"lights"` | Up to 8 lights: `[x, y, z, weight]`, or `[x, y, z, weight, r, g, b]` for a colored one. Lower lights cast longer shadows. |
+| `"color"` | Tints every light, `[r, g, b]` (brightness stays the same). |
+| `"size"` | Width of each light: bigger = softer shadows. |
+| `"shadow"`, `"characterShadow"` | Shadow strength (0 to 1) on the world and on the wrestlers. |
+| `"radius"` | How far from the center shadows land. |
+| `"glows"` | Up to 4 glowing spots (screens, lamps): `[x, y, z, intensity, range]`, optionally `, r, g, b` and a flicker amount. |
+| `"outsideDarkness"`, `"outsideEdge"` | Darkens everything beyond the radius (the crowd), easing in over `outsideEdge` units: the "house lights down" look. 0 = off. |
+| `"litAreas"` | Up to 2 places, `[x, z, radius, edge]`, kept out of that darkness (an entrance stage, for example). |
+| `"anchor": "scene"` | Positions become offsets from the scene's center and floor, for rooms that sit anywhere in the world. |
+
+The top of the file documents every field.
+
+#### The Lighting editor
+
+The game has a live editor for all of this:
+
+1. Close the game, open `%LOCALAPPDATA%\NoMercyRecompiled\graphics.json` (or `graphics.json` next to the exe in portable mode)
+   and set `"developer_mode": true`.
+2. Start the game and press **F1** to open the RT64 inspector. Its **Lighting** window shows the venue the game
+   detected and has sliders for every field, a split-screen view (ray tracing on one half only), and **Save**, which
+   writes `rt_lights.json`.
+3. To light a venue that has no preset yet, go there, type a name and press **New venue from current scene**: it
+   fills in the venue's textures for you.
+
+The bundled free camera (F6, see below) helps you look at the venue from anywhere while you work.
+
+Releases replace `assets\rt_lights.json`, so keep a copy of your edits. To keep your own file somewhere else, set
+the environment variable `WCW_RT_LIGHTS_FILE` to its full path before starting the game.
 
 ## Mods and ROM Hacks
 
 This port loads mods in the `.nrm` format used by the N64: Recompiled projects.
 
+#### Bundled mods
+
+Three mods come with the game and are kept up to date by it. They do nothing until you use them:
+
+- **Camera**: a free camera. Press **F6** and fly around with WASD (Space/Ctrl up and down, Shift for speed) and the
+  mouse; press F6 again to give the camera back to the game.
+- **Cheat Codes**: on/off cheats for this game, plus a box for your own GameShark codes. All off by default.
+- **Quick Match (testing)**: a developer tool that skips the intro and starts a CPU-vs-CPU match in a chosen venue.
+  Off by default; leave it off for normal play.
+
+Their options are in Settings → Mods. To turn one off, switch it off there (deleting its file doesn't stick: the
+game puts it back).
+
 #### Installing a mod
 
-Copy the `.nrm` file into the game's mods folder and start the game:
+Copy the `.nrm` file into the game's mods folder, or use **Install Mods** in the Mods menu (or drag the file onto
+the window):
 
 - Windows: `%LOCALAPPDATA%\NoMercyRecompiled\mods\` (or `mods\` next to the executable in portable mode)
 
-New mods are switched on by default. Builds with the in-game **Mods** menu (Settings → Mods)
-can also install mods there (**Install Mods**, or drag the file onto the window) and switch
-them on and off. Mods are applied when the game starts, so restart after changing them. To
+New mods are switched on by default. Mods are applied when the game starts, so restart after changing them. To
 remove a mod, delete its file.
+
+#### Making your own mod
+
+A mod is a small C program compiled for the N64's MIPS CPU. The runtime links it into the recompiled game, where it
+can run code when a game function is called (a *hook*) or replace a game function (a *patch*).
+
+You need:
+
+- a C compiler with a MIPS backend: [`zig cc`](https://ziglang.org/) works out of the box (the Clang that ships
+  with Visual Studio has no MIPS backend), plus `ld.lld`;
+- `RecompModTool`, built from [N64Recomp](https://github.com/N64Recomp/N64Recomp);
+- `modding.h` and `mod.ld` from the [MMRecompModTemplate](https://github.com/Zelda64Recomp/MMRecompModTemplate)
+  (both work as they are; ignore its Majora's Mask headers);
+- this repository's `syms/dump.toml`, which lists every function in the game.
+
+There's no decompilation of this game, so functions go by their address (`func_80001234`). `syms/dump.toml` and the
+disassembly in `disasm\` are the map; `func_800012B0` runs at least once per frame, which makes it a good first hook:
+
+```c
+#include "modding.h"
+
+RECOMP_HOOK("func_800012B0") void my_mod_on_frame(void) {
+    // runs every frame, before the game's own code
+}
+```
+
+Compile and link (the `+nooddspreg` feature matters: without it floating-point code comes out wrong):
+
+```
+zig cc -target mips-freestanding-none -mcpu=mips2 -mabi=32 -O2 -G0 -mno-abicalls -mno-odd-spreg -Xclang -target-feature -Xclang +nooddspreg -fno-builtin -nostdinc -ffreestanding -ffunction-sections -c my_mod.c -o my_mod.o
+ld.lld my_mod.o -nostdlib -T mod.ld --unresolved-symbols=ignore-all --emit-relocs -e 0 --no-nmagic -gc-sections -o mod.elf
+```
+
+Describe the mod in a `mod.toml` and pack it:
+
+```toml
+[manifest]
+id = "my_mod"
+version = "1.0.0"
+display_name = "My Mod"
+short_description = "What it does."
+authors = [ "you" ]
+game_id = "wwfnomercy"
+minimum_recomp_version = "0.1.0"
+dependencies = []
+optional_dependencies = []
+native_libraries = []
+
+[inputs]
+elf_path = "mod.elf"
+mod_filename = "my_mod"
+func_reference_syms_file = "path/to/syms/dump.toml"
+data_reference_syms_files = []
+additional_files = []
+```
+
+```
+RecompModTool mod.toml out
+```
+
+That writes `out\my_mod.nrm`, ready to install. Options declared under `[[manifest.config_options]]` appear in the
+Mods menu; read them with the runtime's `recomp_get_config_u32` / `_double` / `_string` exports (declare them with
+`RECOMP_IMPORT("*", ...)`). The game also exports keyboard and mouse input to mods (`recomp_get_key_down`,
+`recomp_get_mouse_dx`, ...; the full list is in `src/main/main.cpp`). There's no `recomp_printf`, and a mod that
+imports a function the runtime doesn't have won't load. New mods are switched on as soon as they're installed, so a
+mod you share should do nothing until the player turns it on.
 
 #### ROM hacks as patch mods
 
-A ROM hack can run as a *patch mod*: a mod that holds only a patch against the stock ROM. The
-game applies it to your own ROM when it starts, and any game code the hack changes is
-recompiled on the fly. It works for hacks that:
+Many ROM hacks can run as a *patch mod*: a mod that holds only a patch against the stock ROM. The game applies it to
+your own ROM when it starts, and any game code the hack changes is recompiled on the fly. It works for hacks that:
 
 - are built on the same ROM this port uses (see the ROM's SHA1 above), and
 - change code only inside the game's existing functions (data changes of any size are fine).
 
-Hacks that rebuild or move the game's code, or are made for another revision, need a full
-recompile and can't run as patch mods. Only one patch mod can be on at a time; each one keeps
-its own saves in `saves\<mod id>\`, apart from the stock game's.
+Hacks that add new code, rebuild or move the game's code, or are made for another revision need a full recompile and
+can't run as patch mods. Only one patch mod can be on at a time; each one keeps its own saves in
+`saves\<mod id>\`, apart from the stock game's.
 
-To make one from a hack ROM you have patched yourself (both ROMs must be big-endian `.z64`):
+To make one from a hack ROM you have patched yourself:
+
+1. Get a checkout of this repository and [Python 3](https://www.python.org/).
+2. Put your stock ROM in the repository root as `nomercy.z64`, and generate `RecompiledFuncs\` (the recompile step in
+   [BUILDING.md](BUILDING.md)). You don't need to build the game itself.
+3. Make sure the hack ROM is big-endian `.z64` (convert `.n64` / `.v64` dumps first).
+4. Run:
 
 ```
 python tools\romhack\make_patch_mod.py --base nomercy.z64 --hack my_hack.z64 --game-id wwfnomercy --id my_hack --name "My Hack" --out my_hack.nrm
 ```
 
-Run it from a checkout of this repository after building. It reports what the hack changes
-and refuses hacks that need a full recompile; see [tools/romhack/README.md](tools/romhack/README.md).
-Patch mods can contain the hack's and the original game's data, so **don't share patch mods
-you don't have the rights to**: make your own from your own ROMs.
+The tool reports what the hack changes: data only, changed functions (fine: they're recompiled when the game
+starts), or code that escapes its functions or lies outside them (needs a full recompile: the tool refuses to write
+the mod). Without `--out` it only prints the report, a quick way to check a hack. Then install `my_hack.nrm` like any
+other mod. More detail in [tools/romhack/README.md](tools/romhack/README.md).
+
+Patch mods can contain the hack's and the original game's data, so **don't share patch mods you don't have the rights
+to**: make your own from your own ROMs.
 
 Known results for No Mercy:
 
@@ -171,6 +316,8 @@ See [BUILDING.md](BUILDING.md).
 * [N64ModernRuntime](https://github.com/N64Recomp/N64ModernRuntime) — the modern
   runtime (ultramodern + librecomp)
 * [RT64](https://github.com/rt64/rt64) — the rendering engine
+* [librashader](https://github.com/SnowflakePowered/librashader) with guest's CRT shaders, and the
+  [Blur Busters CRT Beam Simulator](https://github.com/blurbusters/crt-beam-simulator), for the CRT filter
 * [RecompFrontend](https://github.com/N64Recomp/RecompFrontend) — launcher, config
   menus, and input stack
 * [RmlUi](https://github.com/mikke89/RmlUi) for building the menus and launcher

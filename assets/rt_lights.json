@@ -99,7 +99,7 @@
         {
             // v2 (2026-10-12): King of the Ring. Truss rig, cool white. Glows on the set's own lights: blue on the big K and R letters, white on the O above the crossed swords, a purple wash from the truss bridges at the stage lip (the stage rig's purple bridge lights).
             // Round 2: cool blue-tinted key (the KOTR letters' blue) and stronger, lower letter glows.
-            "name": "Arena 3",
+            "name": "King of the Ring",
             "match": ["55C7DA5B924694AA", "69D625899B81A822", "5772021E5DED4427", "AC589BB88560EE55", "F64F2AB1AAC77735",
                        "4B8F9E127F3BF4B6", "802EA150E030E7B4", "1ACE5C174CE7981A", "536FAC916E903CE1", "BE5C3FE2E095BE82",
                        "CE2413488A44B6B2", "C24CCB5EF30C512B", "46D2BFF4FA95CCCE", "DEEB023D84773714", "5AE10933B30C760F"],
@@ -115,9 +115,9 @@
             "glows": [[-600, 450, 2450, 3.5, 1200, 0.35, 0.5, 1.0], [600, 450, 2450, 3.5, 1200, 0.35, 0.5, 1.0], [0, 700, 2550, 2.0, 1100, 0.9, 0.92, 1.0], [0, 150, 2350, 2.5, 1200, 0.7, 0.4, 1.0]]
         },
         {
-            // Arena 4 = SummerSlam (banners; concert stage with speakers and a flood cluster).
+            // SummerSlam (venue 4; named from the banners; concert stage with speakers and a flood cluster).
             // Truss rig like Raw (key ~1100 + four corner lamps at +-450, the octagonal truss every arena hangs).
-            "name": "Arena 4",
+            "name": "SummerSlam",
             "match": ["FF2A185616F6114F", "53754A5809822093", "4391E05557665E5A", "089D231B620CA08D", "CDBBB4ED60269F23",
                        "1F04C58980380971", "BC39AEF0C8A9951E", "CD1F96E6F38E3E53", "116C6B66E2E403DC", "25193AA736AED699",
                        "0D2EBA23D261076E", "9737DC64BA083DC6", "1283E7EA2FBD167F", "87629DBC6790518F", "D24BCFBE6657F007"],
@@ -150,9 +150,9 @@
             "glows": [[0, 950, 2750, 2.2, 1300, 1.0, 0.12, 0.08], [0, 80, 2400, 2.0, 1100, 0.7, 0.45, 1.0], [0, 120, 2280, 1.6, 1000, 0.95, 0.95, 1.0], [0, 600, 2550, 1.0, 1300, 0.75, 0.5, 1.0]]
         },
         {
-            // Arena 6 = Royal Rumble (banners; the alley stage with the taxi).
+            // Royal Rumble (venue 6; named from the banners; the alley stage with the taxi).
             // Truss rig like Raw (key ~1100 + four corner lamps at +-450, the octagonal truss every arena hangs).
-            "name": "Arena 6",
+            "name": "Royal Rumble",
             "match": ["34F7B2A1730608F7", "3AAF2A779D1BE63F", "07D45C0320C205FE", "54045B205C926FB5", "0AEAD239235056A2",
                        "B71EF1E5F3EAD36D", "238ABCE933246B08", "26B287EF659EF7D9", "4A260C9E67E08139", "3B18AA06D243BE59"],
             "lights": [[0, 1100, 0, 3], [-450, 1050, -450, 1], [450, 1050, -450, 1], [-450, 1050, 450, 1], [450, 1050, 450, 1]],
@@ -270,7 +270,7 @@
         },
         {
             // v2 (2026-10-12): King of the Ring stage. White front spot, blue top-truss spots, purple bridge lights (as current). Glows split per source: blue on the K and on the R, white from the light wall behind the WWF logo, a purple wash between the truss bridges.
-            "name": "Arena 3 stage",
+            "name": "King of the Ring stage",
             "match": ["019747B3588BBD16", "9381993091A65525", "9856F11763B95CEC", "9604BE13D07EB064", "25033D79641B59E7",
                        "ED026F189A4197B0", "DE26710F2444A081", "646A4A00AC3865F9", "7C27AC8D05669A2F", "0B3A7EAC53DD3FDF",
                        "2EFF6E063AEC689A", "8B6AF8A22BC27455", "425DF04ACDDE3A2F", "2FEAF30A8A5F2D58", "2E1CA70ADBCA7EE6"],
@@ -286,7 +286,7 @@
         {
             // SummerSlam stage: long blue stage between amp/speaker stacks, a cluster of six big floods at the back, small floor lamps.
             // Warm flood backlight (shadows toward the camera), front spot, low side lamps; flood, blue floor and purple side glows.
-            "name": "Arena 4 stage",
+            "name": "SummerSlam stage",
             "match": ["12C52AFBE3CC9BE1", "3CDD0E3B497CC767", "63D0586C31E1CA96", "7AC065ADA753D399", "BB9DC81CD9EAB03E",
                        "180623DD714A70BF", "EEC9905CC92E975A", "FD067B3FBED7E847", "BCA5C969A01EE138", "2D3B98B713B30196",
                        "D3EAA918C82BCF1C", "302C216D1F19ACF0", "914C95EDFF5D9C63"],
@@ -317,7 +317,7 @@
         {
             // v2 (2026-10-12): Royal Rumble NYC alley at night. Two sodium-orange street lamps and a cool moonlight fill (as current). Glows: sodium wash on the walls, the taxi's white headlights shining down the alley, the two green EXIT signs at the alley mouth.
             // Round 2: the taxi's headlights shine hard down the alley; green EXIT signs lower and stronger.
-            "name": "Arena 6 stage",
+            "name": "Royal Rumble stage",
             "match": ["B60A7796C3BB480F", "8C90AA50D44A150C", "04BFF06455542E85", "7DABA82EAD96F35D", "B066E790681AE4A6",
                        "0BD2BB8554DBBB28", "B2E13E594EBF680E", "00AB1FD3456900C8", "7A30C50C979BBAB2", "337BA2A0FA0DCCCE",
                        "5ED3D3350DB26EE3", "5A2B7C8AB91F74E8", "2559A43CBF069885", "35397EA7D156B7E4", "9F06E80E900CA021"],
@@ -375,8 +375,8 @@
             "glows": [[650, 400, 450, 3.6, 1120, 1.0, 0.5, 0.15], [500, 800, 600, 2.0, 840, 0.3, 0.4, 1.0], [-500, 300, 300, 2.6, 1120, 0.55, 0.35, 1.0]]
         },
         {
-            // Royal Rumble: from the attract demo; in the quickmatch sweep it only matched an intro scene, never a ring.
-            "name": "Royal Rumble",
+            // Royal Rumble (intro): from the attract demo, not venue 6 (the "Royal Rumble" rig above); in the quickmatch sweep it only matched an intro scene, never a ring.
+            "name": "Royal Rumble (intro)",
             "match": ["4ECF33D4F421C86A", "25D2D2092CE6414F", "594CCACDB0E6DF87", "7CCBBE057F1E00CA", "197DCAE66055D5AB",
                        "75A306E7226B15EE", "6E15539C788029BC", "A8C225E931D54C34", "FEF574B4A820BEE3", "8408D04A252B91D1",
                        "FFDDCB01B416DB33", "F2F1B08B2AE0BA3A", "F219AC10B18659F6", "06707B09928BB94B", "FD20FCD9FE2B0DBD",

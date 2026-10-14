@@ -229,21 +229,120 @@ ultramodern::renderer::WindowHandle create_window(ultramodern::gfx_callbacks_t::
 // button (pad 1: A/South, pad 2: B/East, pad 3: X/West, pad 4: Y/North) every 2 seconds.
 // Combined with WCW_INPUT_LOG=1 (librecomp si.cpp) this verifies per-player input
 // separation end to end without physical controllers.
+//
+// WCW_VPADS_SCRIPT=<file> replaces the pulses with scripted presses, for reproducible multi-player
+// runs (e.g. two players into a match). One press per line: `<seconds> <pad 1-4> <button> [hold ms]`,
+// seconds counted from the first frame; buttons are SDL game controller names (a, b, x, y, start,
+// back, dpup, dpdown, dpleft, dpright, leftshoulder, rightshoulder, ...); `#` starts a comment.
+// A line `<seconds> repeat <period seconds>` loops the presses after <seconds> from there on.
+// Hot-plug: `<seconds> plug <pad>` / `<seconds> unplug <pad>` attach / detach a pad then (a pad
+// whose first such line is a plug starts unplugged), like a player connecting or pulling a controller mid-session.
+struct VpadPress { double at; int pad; SDL_GameControllerButton button; uint32_t hold_ms; };
+struct VpadPlug { double at; int pad; bool plug; };
+static std::vector<VpadPlug> g_vpad_plugs;
+
+static std::vector<VpadPress> load_vpad_script(const char* path, double& repeat_from, double& repeat_period) {
+    std::vector<VpadPress> presses;
+    repeat_from = -1.0;
+    repeat_period = 0.0;
+    std::ifstream file(path);
+    std::string line;
+    while (std::getline(file, line)) {
+        const size_t hash = line.find('#');
+        if (hash != std::string::npos) line.resize(hash);
+        char word[64] = {};
+        double at = 0.0, period = 0.0;
+        int pad = 0;
+        unsigned hold = 150;
+        if (sscanf(line.c_str(), "%lf repeat %lf", &at, &period) == 2) {
+            repeat_from = at;
+            repeat_period = period;
+            continue;
+        }
+        char verb[16] = {};
+        if ((sscanf(line.c_str(), "%lf %15s %d", &at, verb, &pad) == 3) && (!strcmp(verb, "plug") || !strcmp(verb, "unplug"))) {
+            if ((pad >= 1) && (pad <= 4)) g_vpad_plugs.push_back({ at, pad - 1, verb[0] == 'p' });
+            continue;
+        }
+        const int fields = sscanf(line.c_str(), "%lf %d %63s %u", &at, &pad, word, &hold);
+        if (fields < 3) continue;
+        const SDL_GameControllerButton button = SDL_GameControllerGetButtonFromString(word);
+        if ((pad < 1) || (pad > 4) || (button == SDL_CONTROLLER_BUTTON_INVALID)) {
+            fprintf(stderr, "[wcw] vpad script: bad line '%s'\n", line.c_str());
+            continue;
+        }
+        presses.push_back({ at, pad - 1, button, hold });
+    }
+    fprintf(stderr, "[wcw] vpad script %s: %zu presses, repeat from %.1f every %.1f s\n", path, presses.size(), repeat_from, repeat_period);
+    return presses;
+}
+
 static void update_virtual_pads() {
     static int vpad_count = -1;
     static SDL_Joystick* vpads[4] = {};
+    static std::vector<VpadPress> script;
+    static bool scripted = false;
+    static double repeat_from = -1.0, repeat_period = 0.0;
+    static uint32_t start_ticks = 0;
+    static size_t next_plug = 0;
+    auto attach = [](int i) {
+        int dev = SDL_JoystickAttachVirtual(SDL_JOYSTICK_TYPE_GAMECONTROLLER,
+                                            SDL_CONTROLLER_AXIS_MAX, SDL_CONTROLLER_BUTTON_MAX, 0);
+        if (dev >= 0) vpads[i] = SDL_JoystickOpen(dev);
+        fprintf(stderr, "[wcw] virtual pad %d attached (dev=%d joy=%p)\n", i + 1, dev, (void*)vpads[i]);
+    };
     if (vpad_count < 0) {
         const char* env = getenv("WCW_VPADS");
         vpad_count = env ? std::clamp(atoi(env), 0, 4) : 0;
-        for (int i = 0; i < vpad_count; i++) {
-            int dev = SDL_JoystickAttachVirtual(SDL_JOYSTICK_TYPE_GAMECONTROLLER,
-                                                SDL_CONTROLLER_AXIS_MAX, SDL_CONTROLLER_BUTTON_MAX, 0);
-            if (dev >= 0) vpads[i] = SDL_JoystickOpen(dev);
-            fprintf(stderr, "[wcw] virtual pad %d attached (dev=%d joy=%p)\n", i + 1, dev, (void*)vpads[i]);
+        if (const char* path = getenv("WCW_VPADS_SCRIPT")) {
+            script = load_vpad_script(path, repeat_from, repeat_period);
+            std::stable_sort(g_vpad_plugs.begin(), g_vpad_plugs.end(), [](const VpadPlug& a, const VpadPlug& b) { return a.at < b.at; });
+            scripted = true;
         }
+        for (int i = 0; i < vpad_count; i++) {
+            // A pad whose first hot-plug event is a plug starts unplugged.
+            const auto first = std::find_if(g_vpad_plugs.begin(), g_vpad_plugs.end(), [i](const VpadPlug& p) { return p.pad == i; });
+            if ((first == g_vpad_plugs.end()) || !first->plug) attach(i);
+        }
+        start_ticks = SDL_GetTicks();
     }
     if (vpad_count == 0) return;
     uint32_t t = SDL_GetTicks();
+    if (scripted) {
+        double now = (t - start_ticks) / 1000.0;
+        while ((next_plug < g_vpad_plugs.size()) && (now >= g_vpad_plugs[next_plug].at)) {
+            const VpadPlug& p = g_vpad_plugs[next_plug++];
+            if (p.pad >= vpad_count) continue;
+            if (p.plug && (vpads[p.pad] == nullptr)) {
+                attach(p.pad);
+            }
+            else if (!p.plug && (vpads[p.pad] != nullptr)) {
+                const SDL_JoystickID id = SDL_JoystickInstanceID(vpads[p.pad]);
+                int device = -1;
+                for (int d = 0; d < SDL_NumJoysticks(); d++) {
+                    if (SDL_JoystickGetDeviceInstanceID(d) == id) device = d;
+                }
+                SDL_JoystickClose(vpads[p.pad]);
+                vpads[p.pad] = nullptr;
+                if (device >= 0) SDL_JoystickDetachVirtual(device);
+                fprintf(stderr, "[wcw] virtual pad %d detached (dev=%d)\n", p.pad + 1, device);
+            }
+        }
+        if ((repeat_from >= 0.0) && (repeat_period > 0.0) && (now >= repeat_from + repeat_period)) {
+            now = repeat_from + std::fmod(now - repeat_from, repeat_period);
+        }
+        bool down[4][SDL_CONTROLLER_BUTTON_MAX] = {};
+        for (const VpadPress& p : script) {
+            if ((now >= p.at) && (now < p.at + p.hold_ms / 1000.0)) down[p.pad][p.button] = true;
+        }
+        for (int i = 0; i < vpad_count; i++) {
+            if (vpads[i] == nullptr) continue;
+            for (int b = 0; b < SDL_CONTROLLER_BUTTON_MAX; b++) {
+                SDL_JoystickSetVirtualButton(vpads[i], b, down[i][b] ? SDL_PRESSED : SDL_RELEASED);
+            }
+        }
+        return;
+    }
     for (int i = 0; i < vpad_count; i++) {
         if (vpads[i] == nullptr) continue;
         // 2 s period, 500 ms press, staggered 250 ms per pad.

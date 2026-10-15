@@ -1,0 +1,86 @@
+# No Mercy: 1P vs 2P Single Match from boot, both players mashing, then pads pulled/reconnected mid-match (hot-plug). Needs background_input_mode On in general.json (the window isn't focused in scripted runs).
+# Run: AkiTools\aki-run.ps1 -Game nomercy -Worktree <wt> -Preset baseline -Seconds 200 -Vars @{ WCW_VPADS = '4'; WCW_VPADS_SCRIPT = '<path to this file>' }
+# Pass: the run ends with "recomp::start returned" and no crash; screenshots (-ShotSec) show the mode.
+3.00 1 start 200
+5.00 1 start 200
+7.00 1 start 200
+9.00 1 start 200
+11.00 1 start 200
+13.00 1 start 200
+15.00 1 start 200
+17.00 1 start 200
+21.00 1 a 150
+23.00 2 a 150
+25.00 1 a 150
+25.50 2 a 150
+26.00 1 start 150
+27.00 1 a 150
+27.50 2 a 150
+28.00 1 start 150
+29.00 1 a 150
+29.50 2 a 150
+30.00 1 start 150
+31.00 1 a 150
+31.50 2 a 150
+32.00 1 start 150
+33.00 1 a 150
+33.50 2 a 150
+34.00 1 start 150
+35.00 1 a 150
+35.50 2 a 150
+36.00 1 start 150
+37.00 1 a 150
+37.50 2 a 150
+38.00 1 start 150
+39.00 1 a 150
+39.50 2 a 150
+40.00 1 start 150
+41.00 1 a 150
+41.50 2 a 150
+42.00 1 start 150
+43.00 1 a 150
+43.50 2 a 150
+44.00 1 start 150
+45.00 1 a 150
+45.50 2 a 150
+46.00 1 start 150
+47.00 1 a 150
+47.50 2 a 150
+48.00 1 start 150
+51.00 1 dpright 300
+51.12 2 b 300
+51.50 1 a 300
+51.62 2 dpleft 300
+52.00 1 dpup 300
+52.12 2 x 300
+52.50 1 b 300
+52.62 2 dpdown 300
+53.00 1 dpleft 300
+53.12 2 a 300
+53.50 1 x 300
+53.62 2 y 300
+54.00 1 dpdown 300
+54.12 2 a 300
+54.50 1 a 300
+54.62 2 b 300
+55.00 1 y 300
+55.12 2 a 300
+55.50 1 a 300
+55.62 2 dpright 300
+56.00 1 b 300
+56.12 2 a 300
+56.50 1 a 300
+56.62 2 dpup 300
+51 repeat 6
+# hot-plug during the match
+0 plug 2
+75 unplug 2
+82 plug 2
+95 plug 3
+100 plug 4
+115 unplug 1
+121 plug 1
+130 unplug 2
+130.6 plug 2
+140 unplug 3
+141 unplug 4

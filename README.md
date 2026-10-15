@@ -138,8 +138,6 @@ patch mods. A free camera (F6), cheats and a Quick Match testing tool come bundl
 
 This is a beta. Known rough edges:
 
-* **Multi-controller sessions** are still being stabilized and can crash; single
-  controller (or keyboard) play is solid.
 * First launch may pause briefly while shaders compile for your GPU.
 * Only the USA Rev 1 ROM is accepted (see the FAQ) — other dumps are rejected at
   intake by design.

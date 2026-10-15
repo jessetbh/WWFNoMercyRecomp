@@ -162,6 +162,43 @@ DCC4_PROBE = [
     '    }\n',
 ]
 
+# [wcw fix] Widescreen cull (aki-roadmap#47 / #5). func_800024F8 is the per-object view cull of the
+# 8x layer passes (func_800025B0): an object is dropped when |x| / (depth + 150) > 1.5 or
+# |y| / (depth + 150) > 1.5 (view space; the threshold is the double at 0x80055828). That is about
+# 3.8x the 4:3 screen edge, but in Expand the screen is wider, and large set pieces whose center is
+# past the line while their geometry reaches into the extra width (barricade segments) vanished at
+# the screen edges. Scale only the horizontal limit by the screen's widening
+# (wcw_widescreen_cull_scale, src/game/recomp_api.cpp: 1 at Original). The projection is untouched
+# (RT64's Expand widens it). Never hook func_800024F8 from a mod: a hooked function is recompiled from
+# the ROM without this edit.
+WCW_CULL_DECLS = [
+    '/* [wcw fix] widescreen cull scale, implemented in src/game/recomp_api.cpp. */\n',
+    'extern double wcw_widescreen_cull_scale(void);\n',
+]
+
+WCW_CULL_COMPARE = '    c1cs = ctx->f22.d < ctx->f0.d;'
+WCW_CULL_X_LOAD = '    ctx->f12.u32l = MEM_W(ctx->r16, 0X18);'
+WCW_CULL_EDIT = [
+    '    /* [wcw fix] widescreen cull: the horizontal limit follows the screen width (aki-roadmap#47). */\n',
+    '    c1cs = (ctx->f22.d * wcw_widescreen_cull_scale()) < ctx->f0.d;\n',
+]
+
+def widescreen_cull_edit(lines):
+    """Replace func_800024F8's horizontal compare (the first after the x load) in place."""
+    lo, hi = body_range(lines, 'func_800024F8')
+    if lo is None:
+        return False
+    loads = [i for i in range(lo, hi) if lines[i].rstrip('\r\n') == WCW_CULL_X_LOAD]
+    if len(loads) != 1:
+        failures.append('wcw-cull: x load %r matched %d times' % (WCW_CULL_X_LOAD, len(loads)))
+        return False
+    compares = [i for i in range(loads[0], hi) if lines[i].rstrip('\r\n') == WCW_CULL_COMPARE]
+    if len(compares) != 2:
+        failures.append('wcw-cull: expected the x and y compares after the x load, found %d' % len(compares))
+        return False
+    lines[compares[0]:compares[0] + 1] = WCW_CULL_EDIT
+    return True
+
 # [nomercy][rt] Ray tracing experiment (exp/raytracing; src/game/raytracing.cpp): hand RT64
 # the real camera. RT64 only uses it while ray tracing is active (menu option or WCW_RT).
 def rt_hand_edits():
@@ -284,6 +321,16 @@ def main():
             applied.append('wcw-resync-null -> funcs_10.c func_80022CEC')
     else:
         applied.append('wcw-resync-null (already present)')
+
+    # [wcw fix] widescreen cull (see WCW_CULL_EDIT above)
+    lines = load_lines('funcs_1.c')
+    if not any('wcw_widescreen_cull_scale' in l for l in lines):
+        if widescreen_cull_edit(lines):
+            insert_after_includes(lines, WCW_CULL_DECLS)
+            save_lines('funcs_1.c', lines)
+            applied.append('wcw-cull -> funcs_1.c func_800024F8')
+    else:
+        applied.append('wcw-cull (already present)')
 
     print('readd_hand_edits: ' + ('; '.join(applied) if applied else 'nothing applied'))
     if failures:

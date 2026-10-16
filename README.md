@@ -306,7 +306,8 @@ can't run as patch mods. Only one patch mod can be on at a time; each one keeps 
 
 To make one from a hack ROM you have patched yourself:
 
-1. Get a checkout of this repository and [Python 3](https://www.python.org/).
+1. Get a checkout of this repository, a checkout of [AKI Mods](https://github.com/jessetbh/AkiMods) next to it (the
+   patch-mod tool is shared by all six ports and lives there), and [Python 3](https://www.python.org/).
 2. Put your stock ROM in the repository root as `nomercy.z64`, and generate `RecompiledFuncs\` (the recompile step in
    [BUILDING.md](BUILDING.md)). You don't need to build the game itself.
 3. Make sure the hack ROM is big-endian `.z64` (convert `.n64` / `.v64` dumps first).
@@ -319,7 +320,9 @@ python tools\romhack\make_patch_mod.py --base nomercy.z64 --hack my_hack.z64 --g
 The tool reports what the hack changes: data only, changed functions (fine: they're recompiled when the game
 starts), or code that escapes its functions or lies outside them (needs a full recompile: the tool refuses to write
 the mod). Without `--out` it only prints the report, a quick way to check a hack. Then install `my_hack.nrm` like any
-other mod. More detail in [tools/romhack/README.md](tools/romhack/README.md).
+other mod. If the hack changes a function this port repaired after recompiling, the report marks it REPAIRED and the
+game's log notes it when the mod loads: such a hack may need testing. More detail in
+[tools/romhack/README.md](tools/romhack/README.md).
 
 Patch mods can contain the hack's and the original game's data, so **don't share patch mods you don't have the rights
 to**: make your own from your own ROMs.

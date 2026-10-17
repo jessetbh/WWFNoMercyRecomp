@@ -1,0 +1,29 @@
+// [wcw rt] Per-surface ray-traced materials (aki-roadmap#95): which textures are which surface, and how each surface
+// catches the venue lights. RT only; raster is unchanged. Format and rules: rt64 common/rt64_wcw_materials.h.
+// Reloaded when it changes, so it can be tuned while the game runs (WCW_RT_MODE=13 shows the classes in color).
+{
+    // Texture hash (as in texture packs and --dump-textures) -> class. Seeded from the art-styles surface tags of the
+    // Raw dump (2026-10-16), checked in the class view (WCW_RT_MODE=13): mat, apron, posts (turnbuckle pads, posts and
+    // their connectors); metal = the overhead lighting truss (three textures; the art-styles table had two of them as
+    // mat), the stage arch truss, the stage plates and the ramp grating. Class materials: the rt64 defaults.
+    "textures": {
+        "1B97A9B8D43D12A1": "mat",
+        "3C496C10A0BEC746": "apron",
+        "3FF838B666927262": "apron",
+        "56ECCBE5DF1F13F0": "apron",
+        "66FE52726C0FB5D1": "apron",
+        "6154243C96505CB8": "posts",
+        "65FA3870105272FC": "posts",
+        "B9D4CE910BE0FB9D": "posts",
+        "F91220F9E523ECBC": "posts",
+        "D1C3F02A6EC6EA52": "metal",
+        "669C9B0502D15DC0": "metal",
+        "F3F77C104B535891": "metal",
+        "66578B3E4816988B": "metal",
+        "5581B2F76A29CE38": "metal",
+        "72DFD32694DD4CB1": "metal"
+    },
+    // The ropes are drawn untextured, one draw per segment with all three ropes (about 74 long, 4 thick, 74 tall, from
+    // 138 up in Raw): recognized by that shape (world units). Thickness allows for ropes bouncing.
+    "ropes": { "minLength": 50, "maxThickness": 24, "maxHeight": 100, "minY": 60 }
+}

@@ -228,6 +228,22 @@ def match_section(base, hack, stock, hack_rom, hack_text, hack_text_end, slack=0
             continue
         if h is not None:
             last_hack_end = h + size
+    # inside a stretch whose size changed, functions that still appear exactly once in the
+    # hack's part of it are matched there too (only the reworked function stays unmatched)
+    chosen = [k for k in range(len(funcs)) if choice[k] is not None]
+    bounds = [(-1, hack_text)] + [(k, choice[k] + funcs[k][1]) for k in chosen] + [(len(funcs), hack_text_end)]
+    for (k0, h0), (k1, _) in zip(bounds, bounds[1:]):
+        h1 = choice[k1] if k1 < len(funcs) else hack_text_end
+        s0 = stock.text + (funcs[k0][0] + funcs[k0][1] if k0 >= 0 else 0)
+        s1 = stock.text + (funcs[k1][0] if k1 < len(funcs) else max(o + z for o, z in funcs))
+        if (s1 - s0) == (h1 - h0) or k1 - k0 < 2:
+            continue
+        last = h0
+        for k in range(k0 + 1, k1):
+            inside = [g for g in cands[k] if last <= g and g + funcs[k][1] <= h1]
+            if len(inside) == 1:
+                choice[k] = inside[0]
+                last = inside[0] + funcs[k][1]
     # build matched + chunks
     prev_s_end, prev_h_end = stock.text, hack_text
     for k, (off, size) in enumerate(funcs):
@@ -277,6 +293,7 @@ class AddressMap:
         self.main = []          # [(lo, hi, delta, kind)]
         self.ovl = {}           # name -> [(lo, hi, delta, kind)]
         self.priority = []      # checked first (code moved out of a data area)
+        self.evidence = {}      # overlay -> sorted hack addresses its own code references
         self.identity = [(0x80400000, 0x80800000)]
         self.rom = []           # [(hack_rom_lo, hack_rom_hi, delta)] for the code region (weak candidates)
 
@@ -328,7 +345,18 @@ class AddressMap:
                 add((a, 'exp'))
         if ctx in self.ovl:
             add(self._find(self.ovl[ctx], a))
-        for group in self.partners(ctx) + [tuple(self.ovl)]:
+        groups = self.partners(ctx) + [tuple(self.ovl)]
+        if ctx is None and self.evidence:
+            # code with no overlay of its own (payload, caves): prefer the overlay whose own code
+            # references a variable right below this address
+            near = []
+            for o, hs in self.evidence.items():
+                i = bisect.bisect_right(hs, a) - 1
+                if i >= 0 and a - hs[i] < 0x100 and self._find(self.ovl.get(o, []), a):
+                    near.append((a - hs[i], o))
+            if near:
+                groups = [(min(near)[1],)] + groups
+        for group in groups:
             for o in group:
                 if o in self.ovl:
                     add(self._find(self.ovl[o], a))
@@ -447,6 +475,7 @@ class Analysis:
         # units: matched functions plus same-size chunks, (stock vram, hack vram, size)
         self.units = {}
         self.resized = []
+        self.shrunk = {}         # (section, stock vram) -> hack size, for functions the hack shortened
         for name, m in self.matches.items():
             u = list(m.matched)
             for slo, shi, hlo, hhi in m.chunks:
@@ -454,7 +483,15 @@ class Analysis:
                     if shi > slo:
                         u.append((slo, hlo, shi - slo))
                 elif shi > slo or hhi > hlo:
-                    self.resized.append((name, slo, shi, hlo, hhi))
+                    st = self.byname[name]
+                    inside = [o for o, z in st.funcs if slo <= st.text + o < shi]
+                    if name != 'main' and len(inside) == 1 and 0 < hhi - hlo <= shi - slo:
+                        # one function the hack made shorter: its version fits in place
+                        # (main's resized code is the Rev 0 flash-save code, which stays Rev 1)
+                        u.append((slo, hlo, shi - slo))
+                        self.shrunk[(name, slo)] = hhi - hlo
+                    else:
+                        self.resized.append((name, slo, shi, hlo, hhi))
             self.units[name] = sorted(u)
         self.build_map()
 
@@ -474,7 +511,7 @@ class Analysis:
             for s, h, z in m.matched:
                 rs.append((h, h + z, (s - h) & 0xFFFFFFFF, 'text'))
             for slo, shi, hlo, hhi in m.chunks:
-                if shi - slo == hhi - hlo and hhi > hlo:
+                if (shi - slo == hhi - hlo or (name, slo) in self.shrunk) and hhi > hlo:
                     rs.append((hlo, hhi, (slo - hlo) & 0xFFFFFFFF, 'text'))
             # entry points inside size-changed chunks, from calls in matched code
             for slo, shi, hlo, hhi in m.chunks:
@@ -514,6 +551,7 @@ class Analysis:
                 rd = ((st.rom - st.text) - (hrom - htext) + d) & 0xFFFFFFFF
                 amap.rom.append((rl, min(rh, hdata_rom_end), rd))
         amap.rom.sort()
+        amap.evidence = {n: sorted({h for _, h in ps}) for n, ps in pairs.items() if n in amap.ovl}
         amap.finish()
         self.map = amap
         self.pairs = pairs
@@ -695,9 +733,14 @@ def port_code(A):
                 continue
             n = z // 4
             sw = [word(A.base, stock.rom_of(s) + 4 * i) for i in range(n)]
-            hw = [word(A.hack, A.hack_rom_of(name, h) + 4 * i) for i in range(n)]
             probs = []
-            nw = rewrite(hw, h, s, tr, sw, probs)
+            if (name, s) in A.shrunk:
+                hn = A.shrunk[(name, s)] // 4
+                hw = [word(A.hack, A.hack_rom_of(name, h) + 4 * i) for i in range(hn)]
+                nw = rewrite(hw, h, s, tr, None, probs) + [0] * (n - hn)
+            else:
+                hw = [word(A.hack, A.hack_rom_of(name, h) + 4 * i) for i in range(n)]
+                nw = rewrite(hw, h, s, tr, sw, probs)
             status = 'moved' if nw == sw else 'changed'
             ports.append(Port(name, s, z, nw, status, probs))
     return ports, A.resized
@@ -811,6 +854,28 @@ def discover_extra_code(A):
         for i, kind, t in mips.jumps(words, stext):
             if region_of(t) and t not in skip:
                 work.append(t)
+    # seeds from data: jump-table cases and function pointers the hack pointed at its own code
+    # (the stock word at the same place is a code address)
+    stock_text = [(st.text, st.data) for st in A.secs]
+    data_seed_owner = {}
+    for name, (srom, stext, stext_end, hdata, hend) in A.place.items():
+        if name == 'entry':
+            continue
+        st = A.byname[name]
+        rs = A.map.main if name == 'main' else A.map.ovl[name]
+        for lo, hi, d, kind in rs:
+            if kind != 'data':
+                continue
+            for y in range(lo, hi, 4):
+                x = (y + d) & 0xFFFFFFFF
+                if not (st.data <= x < st.bss):
+                    continue
+                hw = word(A.hack, srom + (y - stext))
+                if region_of(hw) and hw not in skip:
+                    sw = word(A.base, st.rom_of(x))
+                    if any(a <= sw < b for a, b in stock_text):
+                        work.append(hw)
+                        data_seed_owner.setdefault(hw, set()).add((name, sw))
     entries = {}
     text_jumps = set()
     while work:
@@ -871,10 +936,21 @@ def discover_extra_code(A):
                     for b in reach(t):
                         if h < b < h + z:
                             owners[b].add((name, s, h, z))
+    # hooks entered from a redirected switch case return into the function that owned the case
+    for hw, owners_of in data_seed_owner.items():
+        for name, sw in owners_of:
+            for s, h, z in A.units.get(name, []):
+                if s <= sw < s + z:
+                    for b in reach(hw):
+                        if h < b < h + z:
+                            owners[b].add((name, s, h, z))
     starts = {h for units in A.units.values() for s, h, z in units}
+    stock_starts = {st.text + o for st in A.secs for o, z in st.funcs}
     for t in sorted(text_jumps):
         if t in starts and t not in owners:
             continue
+        if t not in owners and A.map.translate(t) in stock_starts:
+            continue        # a tail call to a function the map knows (e.g. inside resized code)
         own = owners.get(t)
         if not own:
             x = Extra('mid', t, None, 0)
@@ -910,7 +986,7 @@ def translate_data(A, D, report):
         skip.append((cave, cave + 0x100))
     changed = 0
     for name, (hrom, htext, htext_end, hdata, hend) in A.place.items():
-        if name == 'entry':
+        if name == 'entry' or name in getattr(A, 'experiment_no_data', ()):
             continue
         st = A.byname[name]
         ctx = A.ctx_of_hack(name)
@@ -981,7 +1057,10 @@ def assemble(A, report):
     D = bytearray(A.hack)
     code_end = max(s.rom + (s.bss - s.text) for s in A.secs)
     D[0:code_end] = A.base[0:code_end]
+    keep = set(getattr(A, 'experiment_stock_ports', ()))
     for p in ports:
+        if p.status == 'changed' and p.stock_vram in keep:
+            p.status = 'kept'
         if p.status == 'changed':
             r = A.byname[p.section].rom_of(p.stock_vram)
             for i, w in enumerate(p.words):
@@ -1119,6 +1198,8 @@ def main(argv=None):
             p.add_argument('--game-id', default='wwfnomercy')
             p.add_argument('--out', required=True, help='output .nrm')
             p.add_argument('--rom-out', help='also write the stock-layout ROM (local testing only; never share it)')
+            p.add_argument('--x-stock-ports', help='(debugging) comma-separated stock vrams to leave unported')
+            p.add_argument('--x-no-data', help='(debugging) comma-separated sections whose data changes are skipped')
         if name == 'map':
             p.add_argument('--out', required=True, help='output JSON (hack RAM ranges -> stock shifts)')
     gen = sub.add_parser('gen-layout', help='(developers) regenerate nomercy_layout.json from RecompiledFuncs')
@@ -1141,6 +1222,10 @@ def main(argv=None):
     if layout.get('base_sha1') and hashlib.sha1(base).hexdigest() != layout['base_sha1']:
         sys.exit('base ROM is not No Mercy (USA) Rev 1 (SHA1 %s)' % layout['base_sha1'])
     A = Analysis(base, hack, args.layout)
+    if getattr(args, 'x_stock_ports', None):
+        A.experiment_stock_ports = [int(v, 16) for v in args.x_stock_ports.split(',')]
+    if getattr(args, 'x_no_data', None):
+        A.experiment_no_data = args.x_no_data.split(',')
     if args.cmd == 'map':
         json.dump(A.map.to_json(), open(args.out, 'w'), indent=1)
         print('wrote', args.out)

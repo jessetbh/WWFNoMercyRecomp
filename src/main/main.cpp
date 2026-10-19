@@ -38,6 +38,7 @@
 #include "librecomp/rsp.hpp"
 #include "librecomp/helpers.hpp"
 #include "librecomp/overlays.hpp"
+#include "librecomp/addresses.hpp" // recomp::alloc (conversion codes export)
 #include "ovl_patches.hpp"
 #include "icon_bytes.h"
 #include "logo_bytes.h"
@@ -790,6 +791,107 @@ static void register_mod_input_exports() {
     recomp::overlays::register_base_export("recomp_set_movement_rotation", mod_set_movement_rotation);
 }
 
+// [wcw fullconv] Conversion codes. AKI_CONVERSION=<id> (set by AKI Launcher) names an installed conversion,
+// <app folder>/conversions/<id>/conversion.json. When its components.codes.file names a GameShark codes file, the
+// file's text goes to the AkiMods cheats engine (aki_cheats, built with AKI_HOST_CONVERSION), which applies it every
+// frame. Grammar and contract: AkiMods mods/cheats/README.md, "Codes files". Without AKI_CONVERSION, or without a
+// codes component, aki_conversion_codes returns NULL and the cheats mod behaves as before.
+static std::string conversion_codes_text;
+static bool conversion_has_codes = false;
+
+static bool conversion_id_valid(const std::string& id) {
+    if (id.empty() || id.size() > 48 || id == "." || id == "..") {
+        return false;
+    }
+    return std::all_of(id.begin(), id.end(), [](char c) {
+        return (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '_' || c == '.' || c == '-';
+    });
+}
+
+static void load_conversion_codes(const std::filesystem::path& app_folder) {
+    namespace fs = std::filesystem;
+    const char* env = getenv("AKI_CONVERSION");
+    if (env == nullptr || *env == '\0') {
+        return;
+    }
+    const std::string id = env;
+    if (!conversion_id_valid(id)) {
+        fprintf(stderr, "[conversion] AKI_CONVERSION '%s' isn't a valid id ([a-z0-9_.-], at most 48); ignored\n", env);
+        return;
+    }
+    const fs::path dir = app_folder / "conversions" / id;
+    std::string codes_file;
+    try {
+        std::ifstream manifest_file(dir / "conversion.json", std::ios::binary);
+        if (!manifest_file) {
+            fprintf(stderr, "[conversion] %s: no conversion.json in %s\n", id.c_str(), dir.string().c_str());
+            return;
+        }
+        const nlohmann::json manifest = nlohmann::json::parse(manifest_file);
+        const auto components = manifest.find("components");
+        if (components == manifest.end() || !components->contains("codes")) {
+            fprintf(stderr, "[conversion] %s: no codes component\n", id.c_str());
+            return;
+        }
+        codes_file = components->at("codes").at("file").get<std::string>();
+    }
+    catch (const std::exception& e) {
+        fprintf(stderr, "[conversion] %s: bad conversion.json (%s)\n", id.c_str(), e.what());
+        return;
+    }
+    // The codes file must stay inside the conversion's folder.
+    const fs::path rel = fs::path(codes_file).lexically_normal();
+    if (codes_file.empty() || rel.is_absolute() || rel.has_root_name() || (!rel.empty() && *rel.begin() == "..")) {
+        fprintf(stderr, "[conversion] %s: codes file '%s' must be a path inside the conversion folder\n", id.c_str(), codes_file.c_str());
+        return;
+    }
+    std::ifstream f(dir / rel, std::ios::binary);
+    if (!f) {
+        fprintf(stderr, "[conversion] %s: can't read codes file %s\n", id.c_str(), (dir / rel).string().c_str());
+        return;
+    }
+    constexpr size_t max_codes_bytes = 1024 * 1024;
+    std::string text(std::istreambuf_iterator<char>(f), {});
+    if (text.size() > max_codes_bytes) {
+        fprintf(stderr, "[conversion] %s: codes file is over 1 MB; ignored\n", id.c_str());
+        return;
+    }
+    text.erase(std::remove(text.begin(), text.end(), '\0'), text.end()); // the mod reads a C string
+    conversion_codes_text = std::move(text);
+    conversion_has_codes = true;
+    fprintf(stderr, "[conversion] %s: codes file %s (%zu bytes) handed to the cheats engine\n", id.c_str(),
+        rel.string().c_str(), conversion_codes_text.size());
+}
+
+// char* aki_conversion_codes(void): the codes text as a NUL-terminated string in the recomp heap (the mod frees it
+// with recomp_free), or NULL.
+static void mod_conversion_codes(uint8_t* rdram, recomp_context* ctx) {
+    if (!conversion_has_codes) {
+        ctx->r2 = 0;
+        return;
+    }
+    const std::string& s = conversion_codes_text;
+    const size_t alloc_size = (s.size() + 1 + 15) & ~size_t(15);
+    const gpr offset = reinterpret_cast<uint8_t*>(recomp::alloc(rdram, alloc_size)) - rdram;
+    const gpr addr = offset + 0xFFFFFFFF80000000ULL;
+    for (size_t i = 0; i < s.size(); i++) {
+        MEM_B(i, addr) = s[i];
+    }
+    MEM_B(s.size(), addr) = 0;
+    ctx->r2 = addr;
+}
+
+// void aki_conversion_log(const char* msg): one line in the game's log.
+static void mod_conversion_log(uint8_t* rdram, recomp_context* ctx) {
+    fprintf(stderr, "[conversion] %s\n", _arg_string<0>(rdram, ctx).c_str());
+}
+
+static void register_conversion_exports(const std::filesystem::path& app_folder) {
+    load_conversion_codes(app_folder);
+    recomp::overlays::register_base_export("aki_conversion_codes", mod_conversion_codes);
+    recomp::overlays::register_base_export("aki_conversion_log", mod_conversion_log);
+}
+
 // [wcw] Texture packs (aki-roadmap#48). A pack is a folder or an .rtz (a zip) with rt64.json at its root, in the mods
 // folder or installed from the Mods menu; it shows up there and can be switched on and off while playing (the
 // Zelda64Recomp registration). --dump-textures (or WCW_TEX_DUMP=<folder>) saves every texture the game draws as
@@ -981,6 +1083,7 @@ int main(int argc, char** argv) {
     recomp::mods::set_port_rom_revision("nomercy-rev1");
     register_texture_packs(app_folder, dump_textures);
     register_mod_input_exports();
+    register_conversion_exports(app_folder);
     wcw::register_wcw_overlays();
     // [wcw romhack] The runtime warns when a ROM-patch mod changes a function the post-recompile pipeline repaired
     // (generated from RecompiledFuncs/repaired_functions.txt; see CMakeLists).

@@ -1408,6 +1408,11 @@ def assemble(A, report):
             continue
         functions.append(f)
     report['back_branch_copies'] = copies
+    # (debugging) raw word patches at stock addresses: section:vram=word
+    for spec in getattr(A, 'experiment_word_patches', ()):
+        sec, rest = spec.split(':')
+        v, w = (int(x, 16) for x in rest.split('='))
+        put_word(D, A.byname[sec].rom_of(v), w)
     if area:
         D.extend(bytes(new_rom - len(D)))
         D.extend(area)
@@ -1479,6 +1484,7 @@ def main(argv=None):
             p.add_argument('--rom-out', help='also write the stock-layout ROM (local testing only; never share it)')
             p.add_argument('--x-stock-ports', help='(debugging) comma-separated stock vrams to leave unported')
             p.add_argument('--x-no-data', help='(debugging) comma-separated sections whose data changes are skipped')
+            p.add_argument('--x-word-patch', help='(debugging) section:vram=word,... raw words written at stock addresses')
         if name == 'map':
             p.add_argument('--out', required=True, help='output JSON (hack RAM ranges -> stock shifts)')
     gen = sub.add_parser('gen-layout', help='(developers) regenerate nomercy_layout.json from RecompiledFuncs')
@@ -1503,6 +1509,8 @@ def main(argv=None):
     A = Analysis(base, hack, args.layout)
     if getattr(args, 'x_stock_ports', None):
         A.experiment_stock_ports = [int(v, 16) for v in args.x_stock_ports.split(',')]
+    if getattr(args, 'x_word_patch', None):
+        A.experiment_word_patches = args.x_word_patch.split(',')
     if getattr(args, 'x_no_data', None):
         A.experiment_no_data = args.x_no_data.split(',')
     if args.cmd == 'map':

@@ -349,6 +349,21 @@ class EntryPassTests(unittest.TestCase):
         d.add_fall_through_entries(A, D, [])
         self.assertEqual([(x.vram, x.size) for x in A.extras], [(0x80000410, 0x18)])
 
+    def test_blanked_function_gets_no_fall_through_entry(self):
+        # the hack nopped a stub out: dead code, nothing runs into what follows
+        stock = {0x80000400: addiu(V0, 0, 1), 0x80000408: jr(RA), 0x8000040C: NOP,
+                 0x80000418: addiu(V0, 0, 2), 0x80000420: jr(RA), 0x80000424: NOP}
+        hack = dict(stock)
+        hack.update({0x80000400: NOP, 0x80000408: NOP})
+        A, D = fake_main([(0x80000400, 0x10), (0x80000418, 0x10)], stock, hack)
+        d.add_fall_through_entries(A, D, [])
+        self.assertEqual(A.extras, [])
+
+    def test_function_never_ends_on_a_jump_without_its_slot(self):
+        self.assertEqual(d.with_delay_slot(0x4CC, jal(0x801409D4)), 0x4D0)
+        self.assertEqual(d.with_delay_slot(0x20, beq(V0, 0, 3)), 0x24)
+        self.assertEqual(d.with_delay_slot(0x20, addiu(V0, 0, 1)), 0x20)
+
     def test_data_kept_as_a_function_is_ignored(self):
         data = {0x80000400 + 4 * i: 0x43414745 for i in range(4)}       # "CAGE" words, not code
         A, D = fake_main([(0x80000400, 0x10), (0x80000418, 0x10)], {}, data)

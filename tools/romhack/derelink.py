@@ -1410,6 +1410,14 @@ def _ends_flow(w):
     return op == 2 or (op == 0 and (w & 0x3F) == 0x08) or (op == 0x04 and (w >> 16) & 0x3FF == 0)
 
 
+def with_delay_slot(size, last_word):
+    """A function can't end on a jump or branch: its delay slot comes with it (the recompiler needs
+    the slot; an extent cut between them fails to compile, without a message)."""
+    if _jumpish(last_word):
+        return size + 4
+    return size
+
+
 def add_fall_through_entries(A, D, ports):
     """A changed function whose code now runs off its end (the hack wrote over the stock exit and
     continues into padding or the next function) is followed there by the runtime's lookup tail
@@ -1428,8 +1436,11 @@ def add_fall_through_entries(A, D, ports):
                 bodies.append((sec, st.text + o, z))
     for sec, vram, size in bodies:
         st = A.byname[sec]
-        if size < 8 or not all(mips.plausible(word(D, st.rom_of(vram + 4 * i))) for i in range(size // 4)):
+        body = [word(D, st.rom_of(vram + 4 * i)) for i in range(size // 4)]
+        if size < 8 or not all(mips.plausible(w) for w in body):
             continue        # data the recompiler keeps as a function (WM2000's ovl_a tail chunk)
+        if not any(body):
+            continue        # the hack blanked it (dead code): nothing runs into what follows
         prev, last = word(D, st.rom_of(vram + size - 8)), word(D, st.rom_of(vram + size - 4))
         if _ends_flow(prev) or _ends_flow(last) or last == 0x42000018:
             continue
@@ -1879,6 +1890,8 @@ def assemble(A, report):
             f['section_rom'] = A.byname[x.section].rom
         src = D if x.kind not in ('cave', 'reshaped', 'refresh') else None
         get = (lambda v, x=x: word(D, x.rom + (v - x.vram))) if src is not None else               (lambda v: word(area, v - NEW_CODE_VRAM))
+        x.size = with_delay_slot(x.size, get(x.vram + x.size - 4))
+        f['size'] = x.size
         back = []
         for v in range(x.vram, x.vram + x.size, 4):
             w = get(v)

@@ -993,7 +993,7 @@ def discover_extra_code(A):
     A.payload = find_payload(A.hack)
     main = A.byname['main']
     hrom, htext, htext_end = A.place['main'][:3]
-    data_shift = A.map.translate(htext_end) - htext_end           # main data: one shift
+    data_shift = (A.map.translate(htext_end) or htext_end) - htext_end    # main data: one shift (none known: 0)
     hack_main_data = (htext_end, main.bss - data_shift)
     # regions: (name, lo, hi, get_word, section or None); a reshaped chunk only receives jumps
     # from its own section's code (overlays share addresses)

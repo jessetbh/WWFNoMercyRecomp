@@ -1393,24 +1393,91 @@ def add_switch_case_entries(A, D):
                 v += 4
 
 
+def section_funcs(A, sec):
+    """(offset, size) of every stock function of a section, including code it keeps inside its
+    data area (layout extra_code)."""
+    st = A.byname[sec]
+    out = list(st.funcs)
+    for x in A.layout.get('extra_code', []):
+        if x['section'] == sec:
+            out += [(x['ram'] - st.text + o, z) for o, z in x['funcs']]
+    return out
+
+
+def _ends_flow(w):
+    """j, jr or an unconditional b: control never reaches the next instruction (after the slot)."""
+    op = w >> 26
+    return op == 2 or (op == 0 and (w & 0x3F) == 0x08) or (op == 0x04 and (w >> 16) & 0x3FF == 0)
+
+
+def add_fall_through_entries(A, D, ports):
+    """A changed function whose code now runs off its end (the hack wrote over the stock exit and
+    continues into padding or the next function) is followed there by the runtime's lookup tail
+    call: register an entry at that address when it isn't a function start, reaching through the
+    next function."""
+    have = {(x.section, x.vram) for x in A.extras if x.kind == 'mid'}
+    # the runtime regenerates stock functions one by one: check each changed one
+    bodies = []
+    for sec in A.byname:
+        if sec == 'entry':
+            continue
+        st = A.byname[sec]
+        for o, z in section_funcs(A, sec):
+            r = st.rom_of(st.text + o)
+            if D[r:r + z] != A.base[r:r + z]:
+                bodies.append((sec, st.text + o, z))
+    for sec, vram, size in bodies:
+        st = A.byname[sec]
+        if size < 8 or not all(mips.plausible(word(D, st.rom_of(vram + 4 * i))) for i in range(size // 4)):
+            continue        # data the recompiler keeps as a function (WM2000's ovl_a tail chunk)
+        prev, last = word(D, st.rom_of(vram + size - 8)), word(D, st.rom_of(vram + size - 4))
+        if _ends_flow(prev) or _ends_flow(last) or last == 0x42000018:
+            continue
+        t = vram + size
+        funcs = sorted((st.text + o, z) for o, z in section_funcs(A, sec))
+        if any(a == t for a, z in funcs) or (sec, t) in have:
+            continue
+        nxt = [(a, z) for a, z in funcs if a > t]
+        inside = [(a, z) for a, z in funcs if a < t < a + z]
+        end = max([a + z for a, z in inside] + ([nxt[0][0] + nxt[0][1]] if nxt else []), default=None)
+        if end is None or end <= t:
+            continue
+        A.extras.append(Extra('mid', None, t, end - t, section=sec))
+        have.add((sec, t))
+
+
 def add_branch_out_entries(A, D, ports, rounds=4):
-    """Branches that leave a function (IDO shares tails between functions) become lookup tail
-    calls in the live recompiler, so their targets must be registered: add each target as an
-    entry point of the stock function containing it."""
+    """Branches and `j` tail calls that leave a function (IDO shares tails between functions)
+    become lookup tail calls in the live recompiler, so their targets must be registered: add each
+    target as an entry point of the same section's function containing it (a function start there
+    may belong to a co-resident overlay only)."""
     have = {(x.section, x.vram) for x in A.extras if x.kind == 'mid'}
     bodies = [(p.section, p.stock_vram, p.size) for p in ports if p.status == 'changed']
     bodies += [(x.section, x.vram, x.size) for x in A.extras if x.kind == 'mid' and x.vram]
+    # changed functions in code kept inside data areas: the runtime regenerates those itself
+    for x in A.layout.get('extra_code', []):
+        st = A.byname[x['section']]
+        for o, z in x['funcs']:
+            r = st.rom_of(x['ram'] + o)
+            if D[r:r + z] != A.base[r:r + z]:
+                bodies.append((x['section'], x['ram'] + o, z))
+    funcs = {sec: section_funcs(A, sec) for sec in A.byname}
     for _ in range(rounds):
         new = []
         for sec, vram, size in bodies:
             st = A.byname[sec]
+            if not all(mips.plausible(word(D, st.rom_of(vram + 4 * i))) for i in range(size // 4)):
+                continue    # not code: its "branches" are data
             for i in range(size // 4):
                 v = vram + 4 * i
-                t = mips.branch_target(word(D, st.rom_of(v)), v)
+                w = word(D, st.rom_of(v))
+                t = mips.branch_target(w, v)
+                if t is None and w >> 26 == 2:
+                    t = mips.jump_target(w, v)
                 if t is None or vram <= t < vram + size or (sec, t) in have:
                     continue
-                inside = [(st.text + o, z) for o, z in st.funcs if st.text + o < t < st.text + o + z]
-                if not inside or any(st.text + o == t for o, z in st.funcs):
+                inside = [(st.text + o, z) for o, z in funcs[sec] if st.text + o < t < st.text + o + z]
+                if not inside or any(st.text + o == t for o, z in funcs[sec]):
                     continue        # a real function start is registered already
                 fs, fz = min(inside, key=lambda f: f[1])
                 x = Extra('mid', None, t, fs + fz - t, section=sec)
@@ -1786,6 +1853,7 @@ def assemble(A, report):
         if x.kind == 'payload' and x.vram:
             x.rom = A.payload['rom'] + (x.vram - A.payload['ram'])
     add_switch_case_entries(A, D)
+    add_fall_through_entries(A, D, ports)
     add_branch_out_entries(A, D, ports)
     functions = []
     copies = 0
@@ -1801,7 +1869,7 @@ def assemble(A, report):
         else:
             st = A.byname[x.section]
             x.rom = st.rom_of(x.vram)
-            floor = max(lo for lo, hi in [(st.text + o, st.text + o + z) for o, z in st.funcs] if lo <= x.vram)
+            floor = max(lo for lo, hi in [(st.text + o, st.text + o + z) for o, z in section_funcs(A, x.section)] if lo <= x.vram)
         f = dict(vram=x.vram, rom=x.rom, size=x.size, kind=x.kind)
         if x.kind == 'mid' and A.byname[x.section].slot is not None:
             f['section_rom'] = A.byname[x.section].rom

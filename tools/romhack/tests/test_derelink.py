@@ -315,6 +315,48 @@ class PayloadStubTests(unittest.TestCase):
                          [lui(self.T3, (vt + 0x8000) >> 16), lhu, addiu(self.T5, 0, 1), j(0x80400010), NOP])
 
 
+def fake_main(funcs, stock_words, hack_words):
+    """A minimal analysis with one 'main' section at 0x80000400 (ROM 0x1000) for the entry passes;
+    stock_words / hack_words: {vram: word}."""
+    import types
+    size = 0x100
+    base, D = bytearray(0x1000 + size), bytearray(0x1000 + size)
+    for v, w in stock_words.items():
+        put(base, 0x1000 + (v - 0x80000400), [w])
+    for v, w in hack_words.items():
+        put(D, 0x1000 + (v - 0x80000400), [w])
+    sec = d.Section('main', 0x1000, 0x80000400, 0x80000400 + size, 0x80000400 + size, 0x80000400 + size,
+                    [(v - 0x80000400, z) for v, z in funcs])
+    A = types.SimpleNamespace(byname={'main': sec}, layout={'extra_code': []}, base=bytes(base), extras=[])
+    return A, D
+
+
+class EntryPassTests(unittest.TestCase):
+    def test_tail_call_into_the_middle_of_a_function_gets_an_entry(self):
+        hack = {0x80000400: j(0x80000418), 0x80000404: NOP, 0x80000410: addiu(V0, 0, 1),
+                0x80000418: addiu(V0, 0, 2), 0x80000428: jr(RA), 0x8000042C: NOP}
+        A, D = fake_main([(0x80000400, 0x10), (0x80000410, 0x20)], {0x80000400: jr(RA)}, hack)
+        d.add_branch_out_entries(A, D, [d.Port('main', 0x80000400, 0x10, None, 'changed', [])])
+        self.assertEqual([(x.vram, x.size) for x in A.extras], [(0x80000418, 0x18)])
+
+    def test_function_running_off_its_end_into_padding_gets_an_entry(self):
+        # the hack replaced the exit of the first function; it now continues through padding
+        stock = {0x80000400: addiu(V0, 0, 1), 0x80000408: jr(RA), 0x8000040C: NOP,
+                 0x80000418: addiu(V0, 0, 2), 0x80000420: jr(RA), 0x80000424: NOP}
+        hack = dict(stock)
+        hack.update({0x80000408: addiu(A0, 0, 4), 0x8000040C: addiu(A1, 0, 2), 0x80000410: addiu(A0, 0, 1)})
+        A, D = fake_main([(0x80000400, 0x10), (0x80000418, 0x10)], stock, hack)
+        d.add_fall_through_entries(A, D, [])
+        self.assertEqual([(x.vram, x.size) for x in A.extras], [(0x80000410, 0x18)])
+
+    def test_data_kept_as_a_function_is_ignored(self):
+        data = {0x80000400 + 4 * i: 0x43414745 for i in range(4)}       # "CAGE" words, not code
+        A, D = fake_main([(0x80000400, 0x10), (0x80000418, 0x10)], {}, data)
+        d.add_fall_through_entries(A, D, [])
+        d.add_branch_out_entries(A, D, [d.Port('main', 0x80000400, 0x10, None, 'changed', [])])
+        self.assertEqual(A.extras, [])
+
+
 class JumpTableCheckTests(unittest.TestCase):
     def test_table_outside_function_is_flagged(self):
         rom = bytearray(0x200)

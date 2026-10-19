@@ -30,7 +30,18 @@ import mips
 from mips import word, put_word
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-LAYOUT_PATH = os.path.join(HERE, 'nomercy_layout.json')
+LAYOUTS_DIR = os.path.join(HERE, 'layouts')
+LAYOUT_PATH = os.path.join(LAYOUTS_DIR, 'nomercy.json')
+
+
+def find_layout(base):
+    """The layout file whose base_sha1 matches the base ROM, or None."""
+    import glob, hashlib
+    sha = hashlib.sha1(base).hexdigest()
+    for path in sorted(glob.glob(os.path.join(LAYOUTS_DIR, '*.json'))):
+        if json.load(open(path)).get('base_sha1') == sha:
+            return path
+    return None
 DESC_WORDS = 9
 
 
@@ -68,14 +79,18 @@ def read_descriptors(rom, table_off, count):
     return out
 
 
-def find_descriptor_table(rom, count=5, lo=0x40000, hi=0x80000):
+def find_descriptor_table(rom, count=5, lo=0x1000, hi=0x400000, hint=None):
     """Offset of the overlay descriptor table (9 words each: rom start/end, entry, text start/end,
-    data start/end, bss start/end)."""
+    data start/end, bss start/end). `hint`: where the stock table is (hacks rarely move it)."""
     def ok(w):
         return (0x1000 <= w[0] < w[1] <= len(rom) and all(0x80000000 <= x < 0x80800000 for x in w[2:9])
                 and w[3] <= w[4] <= w[5] <= w[6] <= w[7] <= w[8] and w[1] - w[0] == w[6] - w[3])
-    for off in range(lo, hi, 4):
-        if all(ok(struct.unpack_from('>9I', rom, off + 0x24 * i)) for i in range(count)):
+    def table_at(off):
+        return off + 0x24 * count <= len(rom) and all(ok(struct.unpack_from('>9I', rom, off + 0x24 * i)) for i in range(count))
+    if hint is not None and table_at(hint):
+        return hint
+    for off in range(lo, min(hi, len(rom) - 0x24 * count), 4):
+        if table_at(off):
             return off
     return None
 
@@ -90,17 +105,22 @@ def entry_bss(rom):
     return vals[0], vals[1]
 
 
-ORDER = ['ovl_a', 'ovl_b', 'ovl_c', 'ovl_e', 'ovl_d']   # descriptor order in the table
+ORDER = ['ovl_a', 'ovl_b', 'ovl_c', 'ovl_e', 'ovl_d']   # No Mercy's descriptor order (old layouts)
 
 
-def gen_layout(overlays_inl, base_rom):
-    """Stock layout from recomp_overlays.inl + the stock ROM's descriptor table and entry."""
+def gen_layout(overlays_inl, base_rom, game, mod_game_id, manifest_base):
+    """Stock layout from recomp_overlays.inl + the stock ROM's descriptor table and entry.
+    Overlay sections are matched to descriptors by ROM start. Other recompiled sections (code a
+    segment keeps after its data, e.g. WM2000's) are listed as extra stock code ranges."""
+    import hashlib
     from bps import load_sections
     secs = load_sections(overlays_inl)
-    table = find_descriptor_table(base_rom)
-    descs = read_descriptors(base_rom, table, 5)
+    ovls = [x for x in secs if '_ovl_' in x[0]]
+    table = find_descriptor_table(base_rom, count=len(ovls))
+    assert table is not None, 'no overlay descriptor table'
+    descs = read_descriptors(base_rom, table, len(ovls))
     bss_start, bss_size = entry_bss(base_rom)
-    out = []
+    out, extra = [], []
     for name, rom, ram, size, funcs in secs:
         f = [(off, sz) for _, off, sz in funcs]
         if name == 'section_0_entry_funcs':
@@ -108,12 +128,35 @@ def gen_layout(overlays_inl, base_rom):
         elif name.startswith('section_1_main'):
             # main: text, then data up to the bss the entry clears.
             out.append(Section('main', rom, ram, ram + size, bss_start, bss_start + bss_size, f))
-        else:
+        elif '_ovl_' in name:
             ovl = name.split('_', 2)[2].rsplit('_funcs', 1)[0]           # ovl_e
-            d = descs[ORDER.index(ovl)]
-            assert d[0] == rom and d[3] == ram, (name, hex(rom), hex(d[0]))
-            out.append(Section(ovl, d[0], d[3], d[5], d[7], d[8], f, slot=ram))
-    return dict(game='nomercy', descriptor_table=table, sections=[s.to_json() for s in out])
+            k = next(i for i, d in enumerate(descs) if d[0] == rom)
+            d = descs[k]
+            assert d[3] == ram, (name, hex(ram), hex(d[3]))
+            sec = Section(ovl, d[0], d[3], d[5], d[7], d[8], f, slot=ram).to_json()
+            sec['desc_index'] = k
+            out.append(sec)
+        else:
+            owner = None            # the segment whose ROM range holds this code
+            for d in descs:
+                if d[0] <= rom < d[1]:
+                    owner = next(o[0].split('_', 2)[2].rsplit('_funcs', 1)[0] for o in ovls if o[1] == d[0])
+            extra.append(dict(section=owner or 'main', ram=ram, rom=rom, size=size, funcs=f))
+    out = [x if isinstance(x, dict) else x.to_json() for x in out]
+    # overlays that can be resident together: their RAM ranges don't overlap
+    ranges = {x['name']: (x['text'], x['end']) for x in out if x.get('slot') is not None}
+    partners = {o: [tuple(sorted(q for q in ranges if q != o and (ranges[q][1] <= lo or hi <= ranges[q][0])))]
+                for o, (lo, hi) in ranges.items()}
+    partners = {o: [g for g in v if g] for o, v in partners.items()}
+    slots = collections.defaultdict(list)
+    for x in out:
+        if x.get('slot') is not None:
+            slots[x['slot']].append(x['name'])
+    groups = [tuple(sorted(v)) for k, v in sorted(slots.items(), reverse=True)] + [(o,) for o in sorted(ranges)]
+    return dict(game=game, mod_game_id=mod_game_id, manifest_base=manifest_base,
+                base_sha1=hashlib.sha1(base_rom).hexdigest(), descriptor_table=table,
+                descriptor_count=len(ovls), partners=partners, default_groups=groups,
+                sections=out, extra_code=extra)
 
 
 def load_layout(path=LAYOUT_PATH):
@@ -124,16 +167,18 @@ def load_layout(path=LAYOUT_PATH):
 def hack_sections(hack, stock_layout, stock_secs):
     """The hack's section placement: overlays from its descriptor table; main text start and
     rom are assumed unchanged (AKI's boot loads main from rom 0x1000 to 0x80000400)."""
-    table = find_descriptor_table(hack)
+    count = stock_layout.get('descriptor_count', 5)
+    table = find_descriptor_table(hack, count=count, hint=stock_layout.get('descriptor_table'))
     if table is None:
         raise SystemExit('hack: no overlay descriptor table found')
-    descs = read_descriptors(hack, table, 5)
+    descs = read_descriptors(hack, table, count)
+    index = {x['name']: x['desc_index'] for x in stock_layout['sections'] if 'desc_index' in x}
     out = {}
     for s in stock_secs:
         if s.slot is None:
             out[s.name] = None      # filled in by the matcher (main shifts piecewise)
             continue
-        d = descs[ORDER.index(s.name)]
+        d = descs[index[s.name] if s.name in index else ORDER.index(s.name)]
         out[s.name] = Section(s.name, d[0], d[3], d[5], d[7], d[8], slot=None)
     return table, out
 
@@ -388,10 +433,13 @@ class AddressMap:
     PARTNERS = {'ovl_a': [('ovl_b', 'ovl_c', 'ovl_d')], 'ovl_b': [('ovl_a',)], 'ovl_c': [('ovl_a',)],
                 'ovl_d': [('ovl_a',)], 'ovl_e': []}
 
+    DEFAULT_GROUPS = [('ovl_b', 'ovl_c', 'ovl_d'), ('ovl_a',), ('ovl_e',), ('ovl_a', 'ovl_e')]
+
     def partners(self, ctx):
-        if ctx in self.PARTNERS:
-            return self.PARTNERS[ctx]
-        return [('ovl_b', 'ovl_c', 'ovl_d'), ('ovl_a',), ('ovl_e',), ('ovl_a', 'ovl_e')]
+        table = getattr(self, 'partners_of', None) or self.PARTNERS
+        if ctx in table:
+            return table[ctx]
+        return getattr(self, 'default_groups', None) or self.DEFAULT_GROUPS
 
     def translate(self, a, ctx=None):
         r = self.lookup(a, ctx)
@@ -555,6 +603,9 @@ class Analysis:
 
     def build_map(self):
         amap = AddressMap()
+        if 'partners' in self.layout:
+            amap.partners_of = {k: [tuple(g) for g in v] for k, v in self.layout['partners'].items()}
+            amap.default_groups = [tuple(g) for g in self.layout.get('default_groups', [])]
         amap.identity.append((0x80000000, 0x80000400))
         pairs = {}
         for name, m in self.matches.items():
@@ -948,9 +999,13 @@ def discover_extra_code(A):
         regions.append(('reshaped', hlo, hhi, lambda v, name=name: word(A.hack, A.hack_rom_of(name, v)), name))
     skip = {A.payload['cave']} if A.payload else set()
 
+    stock_code = [(x['ram'], x['ram'] + x['size']) for x in A.layout.get('extra_code', [])]
+
     def region_of(a, src=None):
         for r in regions:
             if r[1] <= a < r[2] and (r[4] in (None, 'main') or r[4] == src):
+                if r[0] == 'cave' and any(lo <= a < hi for lo, hi in stock_code):
+                    return None     # a stock function the recompiler already has
                 return r
         return None
 
@@ -1806,7 +1861,7 @@ def assemble(A, report):
     data_ranges = []
     if A.payload:
         data_ranges.append([A.payload['ram'], A.payload['ram'] + A.payload['size'], A.payload['rom']])
-    manifest = dict(format=1, base='nomercy-rev1', functions=functions, code_ranges=code_ranges,
+    manifest = dict(format=1, base=A.layout.get('manifest_base', 'nomercy-rev1'), functions=functions, code_ranges=code_ranges,
                     data_ranges=data_ranges)
     if A.payload:
         p = A.payload
@@ -1859,15 +1914,15 @@ def main(argv=None):
     sub = ap.add_subparsers(dest='cmd', required=True)
     for name in ('analyze', 'build', 'map'):
         p = sub.add_parser(name)
-        p.add_argument('--base', required=True, help='stock No Mercy (USA) Rev 1, .z64')
+        p.add_argument('--base', required=True, help='the stock ROM the game port uses, .z64')
         p.add_argument('--hack', required=True, help='the hack ROM, .z64')
-        p.add_argument('--layout', default=LAYOUT_PATH)
+        p.add_argument('--layout', help='layout file (default: the one in layouts/ for the base ROM)')
         if name == 'build':
             p.add_argument('--id', required=True, help='mod id (also the saves folder)')
             p.add_argument('--name', required=True)
             p.add_argument('--version', default='1.0.0')
             p.add_argument('--author', action='append', default=[])
-            p.add_argument('--game-id', default='wwfnomercy')
+            p.add_argument('--game-id', help="the port's mod game id (default: from the layout)")
             p.add_argument('--out', required=True, help='output .nrm')
             p.add_argument('--rom-out', help='also write the stock-layout ROM (local testing only; never share it)')
             p.add_argument('--x-stock-ports', help='(debugging) comma-separated stock vrams to leave unported')
@@ -1876,26 +1931,36 @@ def main(argv=None):
             p.add_argument('--x-log-entry', help='(debugging) section:vram[:a1],... log (a0, a1) of calls with a0 (or a1) >= 0x10000 in a RAM ring')
         if name == 'map':
             p.add_argument('--out', required=True, help='output JSON (hack RAM ranges -> stock shifts)')
-    gen = sub.add_parser('gen-layout', help='(developers) regenerate nomercy_layout.json from RecompiledFuncs')
+    gen = sub.add_parser('gen-layout', help='(developers) write a game layout from its RecompiledFuncs')
     gen.add_argument('--base', required=True)
     gen.add_argument('--overlays', default='RecompiledFuncs/recomp_overlays.inl')
-    gen.add_argument('--out', default=LAYOUT_PATH)
+    gen.add_argument('--game', required=True, help='layout name, e.g. nomercy, wm2k')
+    gen.add_argument('--mod-game-id', required=True, help="the port's mod game id, e.g. wwfnomercy")
+    gen.add_argument('--manifest-base', required=True, help='base name in relink.json, e.g. nomercy-rev1')
+    gen.add_argument('--out')
     args = ap.parse_args(argv)
 
     if args.cmd == 'gen-layout':
-        json.dump(gen_layout(args.overlays, open(args.base, 'rb').read()), open(args.out, 'w'))
-        print('wrote', args.out)
+        out = args.out or os.path.join(LAYOUTS_DIR, args.game + '.json')
+        json.dump(gen_layout(args.overlays, open(args.base, 'rb').read(), args.game, args.mod_game_id,
+                             args.manifest_base), open(out, 'w'))
+        print('wrote', out)
         return
     base = open(args.base, 'rb').read()
     hack = open(args.hack, 'rb').read()
     for label, rom in (('base', base), ('hack', hack)):
         if rom[:4] != b'\x80\x37\x12\x40':
             sys.exit('%s ROM is not big-endian .z64 (starts %s)' % (label, rom[:4].hex()))
-    layout = json.load(open(args.layout))
+    layout_path = args.layout or find_layout(base)
+    if layout_path is None:
+        sys.exit('base ROM matches no layout in %s (it must be the exact ROM the game port uses)' % LAYOUTS_DIR)
+    layout = json.load(open(layout_path))
     import hashlib
     if layout.get('base_sha1') and hashlib.sha1(base).hexdigest() != layout['base_sha1']:
-        sys.exit('base ROM is not No Mercy (USA) Rev 1 (SHA1 %s)' % layout['base_sha1'])
-    A = Analysis(base, hack, args.layout)
+        sys.exit('base ROM is not the one %s expects (SHA1 %s)' % (os.path.basename(layout_path), layout['base_sha1']))
+    if getattr(args, 'game_id', None) is None and args.cmd == 'build':
+        args.game_id = layout.get('mod_game_id', 'wwfnomercy')
+    A = Analysis(base, hack, layout_path)
     if getattr(args, 'x_stock_ports', None):
         A.experiment_stock_ports = [int(v, 16) for v in args.x_stock_ports.split(',')]
     if getattr(args, 'x_word_patch', None):

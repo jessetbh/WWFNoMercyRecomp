@@ -865,7 +865,8 @@ def find_payload(hack):
 
 def trace_extent(get_word, entry, lo, hi):
     """Linear extent [entry, end) of code entered at `entry` within [lo, hi): follows branches
-    and fallthrough, stops after jr / j (j targets are separate entries). Returns
+    and fallthrough, stops after jr / j (j targets are separate entries). A branch into the delay
+    slot of a j (hand-written hack code does that) traces on from the slot. Returns
     (end, j_targets, jal_targets, back_branches)."""
     seen = set()
     work = [entry]
@@ -886,16 +887,13 @@ def trace_extent(get_word, entry, lo, hi):
                     work.append(t)
                 # beq zero,zero (b) is unconditional
                 if op == 0x04 and (w >> 16) & 0x3FF == 0:
-                    seen.add(pc + 4)
                     break
             if op == 2:
                 jt.add(mips.jump_target(w, pc))
-                seen.add(pc + 4)
                 break
             if op == 3:
                 jalt.add(mips.jump_target(w, pc))
             if op == 0 and (w & 0x3F) == 0x08:          # jr
-                seen.add(pc + 4)
                 break
             pc += 4
     return min(end, hi), jt, jalt, back
@@ -966,7 +964,8 @@ def discover_extra_code(A):
                 hw = word(A.hack, srom + (y - stext))
                 if hw & 3 == 0 and region_of(hw, name) and hw not in skip:
                     sw = word(A.base, st.rom_of(x))
-                    if any(a <= sw < b for a, b in stock_text):
+                    r = region_of(hw, name)
+                    if any(a <= sw < b for a, b in stock_text) and                             mips.plausible_entry([r[3](hw + 4 * k) for k in range(6)]):
                         work.append((hw, name))
                         data_seed_owner.setdefault(hw, set()).add((name, sw))
     entries = {}                                # address -> (region, end, back)
@@ -1267,6 +1266,46 @@ def patch_unsupported_instructions(D, functions, report):
     report['cop0_random_replaced'] = n
 
 
+def overlay_switch_tables(A, D, x):
+    """[(section, table vram)] for jump tables in an overlay's data that payload function x
+    dispatches through (`lw rX, %lo(table)(...)` ... `jr rX`, the hack taking over a switch)."""
+    sec = getattr(A, 'region_ctx', {}).get(x.hack_vram)
+    if x.kind != 'payload' or sec is None or sec == 'main':
+        return []
+    st = A.byname[sec]
+    words = [word(D, x.rom + 4 * i) for i in range(x.size // 4)]
+    jr_regs = {(w >> 21) & 31 for w in words if w >> 26 == 0 and (w & 0x3F) == 0x08 and (w >> 21) & 31 != 31}
+    out = []
+    for hi, lo, a in mips.hilo_refs(words):
+        w = words[lo]
+        if w >> 26 == 0x23 and (w >> 16) & 31 in jr_regs and st.data <= a < st.bss:
+            out.append((sec, a))
+    return out
+
+
+def add_switch_case_entries(A, D):
+    """Cases of overlay switch tables that payload code dispatches through are mid-function
+    points of stock overlay code: register them so the lookup tail calls find them."""
+    have = {(x.section, x.vram) for x in A.extras if x.kind == 'mid'}
+    for x in list(A.extras):
+        if x.kind != 'payload' or x.rom is None:
+            continue
+        for sec, tv in overlay_switch_tables(A, D, x):
+            st = A.byname[sec]
+            x.data_section = sec
+            v = tv
+            while v < st.bss:
+                t = word(D, st.rom_of(v))
+                if not (st.text <= t < st.data) or t & 3:
+                    break
+                inside = [(st.text + o, z) for o, z in st.funcs if st.text + o < t < st.text + o + z]
+                if inside and (sec, t) not in have:
+                    fs, fz = min(inside, key=lambda f: f[1])
+                    A.extras.append(Extra('mid', None, t, fs + fz - t, section=sec))
+                    have.add((sec, t))
+                v += 4
+
+
 def add_branch_out_entries(A, D, ports, rounds=4):
     """Branches that leave a function (IDO shares tails between functions) become lookup tail
     calls in the live recompiler, so their targets must be registered: add each target as an
@@ -1402,6 +1441,24 @@ def add_entry_logs(A, D, area, report):
     becomes a jump to a stub that records (a0, a1) of calls with a0 >= 0x10000 in a 256-entry ring at 0x807FF108 (write offset
     at 0x807FF100, above No Mercy Plus's Expansion-RAM heap), runs the second word and jumps back."""
     for spec in getattr(A, 'experiment_log_entries', ()):
+        if spec.startswith('jsite:'):
+            # the j/jal at sec:vram goes through a stub that records (v0, s0, s1) in the 0x804B0000
+            # ring (12-byte entries) and then jumps to the original target
+            _, sec, v = spec.split(':')
+            v = int(v, 16)
+            r = A.byname[sec].rom_of(v)
+            w = word(D, r)
+            target = mips.jump_target(w, v)
+            off = (len(area) + 15) & ~15
+            area.extend(bytes(off - len(area)))
+            sv = NEW_CODE_VRAM + off
+            code = [0x3C18804B, 0x8F190000, 0x2739000C, 0x3339FFFF, 0xAF190000, 0x0338C821,
+                    0xAF220008, 0xAF30000C, 0xAF310010, mips.with_jump_target(0x08000000, target), 0]
+            for c in code:
+                area.extend(c.to_bytes(4, 'big'))
+            put_word(D, r, mips.with_jump_target(w, sv))
+            A.extras.append(Extra('refresh', None, sv, 4 * len(code)))
+            continue
         sec, v, *flt = spec.split(':')
         v = int(v, 16)
         reg = 5 if flt == ['a1'] else 4     # the argument compared with the minimum
@@ -1490,6 +1547,10 @@ def assemble(A, report):
     report['cave_problems'] = cave_probs
     add_refresh_stubs(A, D, area, report)
     add_entry_logs(A, D, area, report)
+    for x in A.extras:
+        if x.kind == 'payload' and x.vram:
+            x.rom = A.payload['rom'] + (x.vram - A.payload['ram'])
+    add_switch_case_entries(A, D)
     add_branch_out_entries(A, D, ports)
     functions = []
     copies = 0
@@ -1537,7 +1598,12 @@ def assemble(A, report):
                 area.extend(w.to_bytes(4, 'big'))
             f = dict(f, vram=lo - 8, entry=x.vram, rom=new_rom + off, size=4 * len(words), kind=x.kind + '+copy')
             copies += 1
-        if x.kind == 'payload':
+        if x.kind == 'payload' and getattr(x, 'data_section', None):
+            # dispatches through an overlay's switch table: that overlay's data for jump tables
+            # (the payload's own tables still resolve through the manifest's data_ranges)
+            st = A.byname[x.data_section]
+            f['data'] = [st.text, st.bss, st.rom]
+        elif x.kind == 'payload':
             f['data'] = [A.payload['ram'], A.payload['ram'] + A.payload['size'], A.payload['rom']]
         elif x.kind == 'mid':
             st = A.byname[x.section]

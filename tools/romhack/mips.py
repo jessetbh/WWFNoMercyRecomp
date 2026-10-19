@@ -128,6 +128,47 @@ def hilo_refs(words, base_pc=0, init=None, final_state=None):
     return out
 
 
+SPECIAL_OK = {0x00, 0x02, 0x03, 0x04, 0x06, 0x07, 0x08, 0x09, 0x0C, 0x0D, 0x0F} | set(range(0x10, 0x28)) - {0x15} |              {0x2A, 0x2B, 0x2C, 0x2D, 0x2E, 0x2F, 0x30, 0x31, 0x32, 0x33, 0x34, 0x36,
+              0x38, 0x3A, 0x3B, 0x3C, 0x3E, 0x3F}
+SHIFT_IMM = {0x00, 0x02, 0x03, 0x38, 0x3A, 0x3B, 0x3C, 0x3E, 0x3F}
+REGIMM_OK = {0x00, 0x01, 0x02, 0x03, 0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0E, 0x10, 0x11, 0x12, 0x13}
+COP0_RS_OK = {0x00, 0x04, 0x10}
+COP1_RS_OK = {0x00, 0x01, 0x02, 0x04, 0x05, 0x06, 0x08, 0x10, 0x11, 0x14, 0x15}
+BAD_OPS = {0x12, 0x13, 0x1C, 0x1D, 0x1E, 0x1F, 0x3B}
+
+
+def plausible(w):
+    """False for words that are not R4300 instructions a game would contain (a cheap check for
+    code addresses that really point at data)."""
+    op = w >> 26
+    if op in BAD_OPS:
+        return False
+    if op == 0:
+        f = w & 0x3F
+        if f not in SPECIAL_OK:
+            return False
+        if f in SHIFT_IMM and (w >> 21) & 31:
+            return False
+        return True
+    if op == 1:
+        return (w >> 16) & 31 in REGIMM_OK
+    if op == 0x10:
+        return (w >> 21) & 31 in COP0_RS_OK
+    if op == 0x11:
+        return (w >> 21) & 31 in COP1_RS_OK
+    return True
+
+
+def plausible_entry(words, n=6):
+    """The first n words (or up to a jr/j and its delay slot) all plausible instructions."""
+    for i, w in enumerate(words[:n]):
+        if not plausible(w):
+            return False
+        if w >> 26 == 2 or (w >> 26 == 0 and (w & 0x3F) == 0x08):
+            return i + 1 >= len(words) or plausible(words[i + 1])
+    return True
+
+
 def jumps(words, base_pc):
     """[(index, kind, target)] for j/jal."""
     out = []

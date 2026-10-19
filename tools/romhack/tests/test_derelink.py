@@ -192,6 +192,21 @@ class TraceTests(unittest.TestCase):
         self.assertEqual(end, 0x80400018)
         self.assertEqual(jt, {0x80400100})
 
+    def test_branch_into_a_jump_delay_slot_traces_on(self):
+        # bne -> the j's delay slot, then fall through to a jump-table dispatch (hand-written hack code)
+        words = {0x80400000: beq(AT, S0, 2) | (1 << 26), 0x80400004: NOP, 0x80400008: j(0x80100000),
+                 0x8040000C: NOP, 0x80400010: lui(AT, 0x8015), 0x80400014: jr(V0), 0x80400018: NOP}
+        end, jt, jalt, back = d.trace_extent(lambda v: words.get(v, 0), 0x80400000, 0x80400000, 0x80400100)
+        self.assertEqual(end, 0x8040001C)
+
+
+class PlausibleTests(unittest.TestCase):
+    def test_code_is_plausible_and_text_is_not(self):
+        self.assertTrue(mips.plausible_entry([addiu(AT, 0, 1), lui(V0, 0x8015), addu(V0, V0, A0), jr(RA), NOP]))
+        # a byte table that happens to decode as a shift with rs set, and ASCII text
+        self.assertFalse(mips.plausible_entry([0x01030202, 0x03020401]))
+        self.assertFalse(mips.plausible(0x43414745))      # "CAGE": COP0 with an unused rs
+
 
 class RefreshHookTests(unittest.TestCase):
     T1, T4 = 9, 12

@@ -193,6 +193,30 @@ class TraceTests(unittest.TestCase):
         self.assertEqual(jt, {0x80400100})
 
 
+class RefreshHookTests(unittest.TestCase):
+    T1, T4 = 9, 12
+
+    def test_pure_hook_body(self):
+        # out = *(in) + 0x10000, then back into the hooked function
+        words = [lui(T0, 0x8012), lw(T0, 0x3450, T0), lui(self.T1, 1), addu(T0, T0, self.T1),
+                 lui(self.T4, 0x8041), sw(T0, 0x20, self.T4), j(0x80001234), NOP, 0xDEADBEEF]
+        idx, ins, outs = d.pure_hook_body(words)
+        self.assertEqual(idx, [0, 1, 2, 3, 4, 5])
+        self.assertEqual(ins, {0x80123450})
+        self.assertEqual(outs, {0x80410020})
+
+    def test_hook_with_branch_or_saved_register_is_not_pure(self):
+        self.assertIsNone(d.pure_hook_body([lui(T0, 0x8012), beq(T0, 0, 2), NOP, j(0x80001234), NOP]))
+        self.assertIsNone(d.pure_hook_body([lui(S0, 0x8012), lw(T0, 0x3450, S0), lui(self.T4, 0x8041),
+                                            sw(T0, 0x20, self.T4), j(0x80001234), NOP]))
+
+    def test_delay_slot_of_the_jump_back_is_part_of_the_body(self):
+        words = [lui(T0, 0x8012), lw(T0, 0x3450, T0), lui(self.T4, 0x8041), j(0x80001234), sw(T0, 0x20, self.T4)]
+        idx, ins, outs = d.pure_hook_body(words)
+        self.assertEqual(idx, [0, 1, 2, 4])
+        self.assertEqual(outs, {0x80410020})
+
+
 class JumpTableCheckTests(unittest.TestCase):
     def test_table_outside_function_is_flagged(self):
         rom = bytearray(0x200)

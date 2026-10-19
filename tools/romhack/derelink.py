@@ -1296,6 +1296,143 @@ def add_branch_out_entries(A, D, ports, rounds=4):
         bodies = new
 
 
+REFRESH_OPS = {0x0F, 0x09, 0x0C, 0x0D, 0x0A, 0x0B} | mips.LOAD_GPR | {0x28, 0x29, 0x2B}
+REFRESH_SPECIAL = {0x00, 0x02, 0x03, 0x20, 0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27, 0x2A, 0x2B}
+REFRESH_TEMPS = {1, 8, 9, 10, 11, 12, 13, 14, 15, 24, 25}
+
+
+def pure_hook_body(words):
+    """The body of a hook that only derives values from memory: straight-line loads, arithmetic
+    and stores into caller-saved temporaries, ending in the `j` back. Returns (indices of the body
+    words, incl. the j's delay slot, input addresses, output addresses) or None."""
+    for i, w in enumerate(words):
+        op = w >> 26
+        if op == 2:
+            idx = list(range(i)) + ([i + 1] if i + 1 < len(words) and words[i + 1] else [])
+            break
+        if op == 0:
+            if (w & 0x3F) not in REFRESH_SPECIAL:
+                return None
+        elif op not in REFRESH_OPS:
+            return None
+        r = mips.gpr_written(w)
+        if r is not None and r not in REFRESH_TEMPS:
+            return None
+    else:
+        return None
+    body = [words[i] for i in idx]
+    refs = mips.hilo_refs(body)
+    ins = {a for hi, lo, a in refs if body[lo] >> 26 in mips.LOAD_GPR}
+    outs = {a for hi, lo, a in refs if body[lo] >> 26 in mips.STORE_OPS}
+    if not ins or not outs:
+        return None
+    return idx, ins, outs
+
+
+def add_refresh_stubs(A, D, area, report, lookahead=12):
+    """A hook the game runs every retrace can keep values derived from other memory (V3/BTBW: a
+    pointer = *(save struct pointer) + 0x10000). On hardware the retrace interrupt preempts the game
+    thread, so the value is fresh soon after its input changes; natively nothing preempts, and code
+    that sets the input and reads the derived value in one go reads a stale one. For each pure
+    hook, the call that follows each store to one of its inputs goes through a stub in the new-code
+    area that runs the hook's body first and then tail-calls the original target (at a call, the
+    temporaries the body uses are free)."""
+    hooks = []
+    for e, (r, end, back) in A.region_entries.items():
+        if r[0] not in ('cave', 'payload'):
+            continue
+        hw = [r[3](v) for v in range(e, end, 4)]
+        got = pure_hook_body(hw)
+        if not got:
+            continue
+        idx, ins, outs = got
+        # the already-translated body: caves sit in the new-code area, payload code in D
+        x = next((x for x in A.extras if x.hack_vram == e and x.vram), None)
+        if x is None:
+            continue
+        if r[0] == 'cave':
+            tw = [word(area, x.vram - NEW_CODE_VRAM + 4 * i) for i in range(len(hw))]
+        else:
+            tw = [word(D, A.payload['rom'] + (e - A.payload['ram']) + 4 * i) for i in range(len(hw))]
+        hooks.append((e, [tw[i] for i in idx], ins, outs))
+    sites = []
+    for name, units in A.units.items():
+        st = A.byname[name]
+        for s, h, z in units:
+            hw = [word(A.hack, A.hack_rom_of(name, h) + 4 * i) for i in range(z // 4)]
+            for hi, lo, a in mips.hilo_refs(hw):
+                if hw[lo] >> 26 not in mips.STORE_OPS:
+                    continue
+                hook = next((k for k in hooks if a in k[2]), None)
+                if hook is None:
+                    continue
+                if lo and (mips.branch_target(hw[lo - 1], 0) is not None or hw[lo - 1] >> 26 in (2, 3)):
+                    continue                    # a store in a delay slot: leave it
+                for k in range(lo + 1, min(lo + 1 + lookahead, len(hw))):
+                    w = hw[k]
+                    if w >> 26 == 3:
+                        sites.append((name, s + 4 * k, hook, a))
+                        break
+                    if mips.branch_target(w, 0) is not None or w >> 26 == 2 or (w >> 26 == 0 and (w & 0x3F) in (0x08, 0x09)):
+                        report.setdefault('refresh_unhandled', []).append((name, h + 4 * lo, a))
+                        break
+    stubs = {}
+    for name, v, (e, tbody, ins, outs), a in sites:
+        st = A.byname[name]
+        r = st.rom_of(v)
+        jal = word(D, r)
+        target = mips.jump_target(jal, v)
+        key = (e, target)
+        if key not in stubs:
+            off = (len(area) + 15) & ~15
+            area.extend(bytes(off - len(area)))
+            sv = NEW_CODE_VRAM + off
+            for w in tbody + [mips.with_jump_target(0x08000000, target), 0]:
+                area.extend(w.to_bytes(4, 'big'))
+            x = Extra('refresh', None, sv, 4 * (len(tbody) + 2))
+            A.extras.append(x)
+            stubs[key] = sv
+        put_word(D, r, mips.with_jump_target(jal, stubs[key]))
+        report.setdefault('refresh_sites', []).append((name, v, a, stubs[key]))
+    report['refresh_hooks'] = [(e, sorted(ins), sorted(outs)) for e, _, ins, outs in hooks]
+
+
+def add_entry_logs(A, D, area, report):
+    """(debugging) For each 'section:vram' in A.experiment_log_entries: the function's first word
+    becomes a jump to a stub that records (a0, a1) of calls with a0 >= 0x10000 in a 256-entry ring at 0x807FF108 (write offset
+    at 0x807FF100, above No Mercy Plus's Expansion-RAM heap), runs the second word and jumps back."""
+    for spec in getattr(A, 'experiment_log_entries', ()):
+        sec, v, *flt = spec.split(':')
+        v = int(v, 16)
+        reg = 5 if flt == ['a1'] else 4     # the argument compared with the minimum
+        st = A.byname[sec]
+        r = st.rom_of(v)
+        fsz = next(z for o, z in st.funcs if st.text + o == v)
+        w0, w1 = word(D, r), word(D, r + 4)
+        off = (len(area) + 15) & ~15
+        area.extend(bytes(off - len(area)))
+        sv = NEW_CODE_VRAM + off
+        if flt == ['heap']:
+            # every call: (a0, size of the heap head block at 0x80500000, where No Mercy Plus V3 and
+            # BTBW put it) into an 8192-entry ring at
+            # 0x804B0008 (write offset at 0x804B0000; free Expansion RAM below the hack's heap)
+            code = [0x3C18804B, 0x8F190000, 0x27390008, 0x3339FFF8, 0xAF190000, 0x0338C821,
+                    0xAF240008, 0x3C018050, 0x8C210004, 0xAF21000C,
+                    w1, mips.with_jump_target(0x08000000, v + 8), 0]
+        else:
+            # calls with a0 >= the minimum only: (a0, a1) into the ring
+            code = [0x3C190000 | (getattr(A, 'experiment_log_min', 0) >> 16), (reg << 21) | 0x0019C82B, 0x17200008, 0x3C188080,
+                    0x8F19F100, 0x27390008, 0x333907F8, 0xAF19F100, 0x0338C821,
+                    0xAF24F108, 0xAF25F10C, w1, mips.with_jump_target(0x08000000, v + 8), 0]
+        for w in code:
+            area.extend(w.to_bytes(4, 'big'))
+        put_word(D, r, mips.with_jump_target(0x08000000, sv))
+        put_word(D, r + 4, w0)
+        A.extras.append(Extra('refresh', None, sv, 4 * len(code)))
+        A.extras.append(Extra('mid', None, v + 8, fsz - 8, section=sec))
+        report.setdefault('entry_logs', []).append((sec, v, sv))
+
+
 def assemble(A, report):
     """The stock-layout ROM: stock code/data with the hack's changes, the hack's assets and
     payload, and the new-code area appended. Returns (rom bytes, relink manifest)."""
@@ -1351,6 +1488,8 @@ def assemble(A, report):
                     if c is not None:
                         put_word(area, off + 4 * i, c)
     report['cave_problems'] = cave_probs
+    add_refresh_stubs(A, D, area, report)
+    add_entry_logs(A, D, area, report)
     add_branch_out_entries(A, D, ports)
     functions = []
     copies = 0
@@ -1360,7 +1499,7 @@ def assemble(A, report):
         if x.kind == 'payload':
             x.rom = A.payload['rom'] + (x.vram - A.payload['ram'])
             floor = A.payload['ram']
-        elif x.kind in ('cave', 'reshaped'):
+        elif x.kind in ('cave', 'reshaped', 'refresh'):
             x.rom = new_rom + (x.vram - NEW_CODE_VRAM)
             floor = max(nv for k, sec, lo, hi, nv in A.new_blocks if nv <= x.vram)
         else:
@@ -1370,7 +1509,7 @@ def assemble(A, report):
         f = dict(vram=x.vram, rom=x.rom, size=x.size, kind=x.kind)
         if x.kind == 'mid' and A.byname[x.section].slot is not None:
             f['section_rom'] = A.byname[x.section].rom
-        src = D if x.kind not in ('cave', 'reshaped') else None
+        src = D if x.kind not in ('cave', 'reshaped', 'refresh') else None
         get = (lambda v, x=x: word(D, x.rom + (v - x.vram))) if src is not None else               (lambda v: word(area, v - NEW_CODE_VRAM))
         back = []
         for v in range(x.vram, x.vram + x.size, 4):
@@ -1453,6 +1592,9 @@ def summarize(A, report):
     k = collections.Counter(x.kind for x in A.extras)
     lines.append('extra functions: %d payload, %d cave, %d reshaped, %d mid-function return points' % (k['payload'], k['cave'], k['reshaped'], k['mid']))
     lines.append('data words changed: %d; payload pointers translated: %d' % (report['data_words_changed'], report.get('payload_pointers_translated', 0)))
+    if report.get('refresh_hooks'):
+        lines.append('hook-derived values refreshed: %d hook(s), %d call site(s), %d store(s) with no call after' % (
+            len(report['refresh_hooks']), len(report.get('refresh_sites', [])), len(report.get('refresh_unhandled', []))))
     probs = [(p.section, p.stock_vram, x) for p in ports if p.status == 'changed' for x in p.problems]
     probs += [('payload', 0, x) for x in report.get('payload_code_problems', [])]
     probs += [('cave', 0, x) for x in report.get('cave_problems', [])]
@@ -1485,6 +1627,7 @@ def main(argv=None):
             p.add_argument('--x-stock-ports', help='(debugging) comma-separated stock vrams to leave unported')
             p.add_argument('--x-no-data', help='(debugging) comma-separated sections whose data changes are skipped')
             p.add_argument('--x-word-patch', help='(debugging) section:vram=word,... raw words written at stock addresses')
+            p.add_argument('--x-log-entry', help='(debugging) section:vram[:a1],... log (a0, a1) of calls with a0 (or a1) >= 0x10000 in a RAM ring')
         if name == 'map':
             p.add_argument('--out', required=True, help='output JSON (hack RAM ranges -> stock shifts)')
     gen = sub.add_parser('gen-layout', help='(developers) regenerate nomercy_layout.json from RecompiledFuncs')
@@ -1511,6 +1654,9 @@ def main(argv=None):
         A.experiment_stock_ports = [int(v, 16) for v in args.x_stock_ports.split(',')]
     if getattr(args, 'x_word_patch', None):
         A.experiment_word_patches = args.x_word_patch.split(',')
+    if getattr(args, 'x_log_entry', None):
+        A.experiment_log_entries = args.x_log_entry.split(',')
+        A.experiment_log_min = 0x10000
     if getattr(args, 'x_no_data', None):
         A.experiment_no_data = args.x_no_data.split(',')
     if args.cmd == 'map':

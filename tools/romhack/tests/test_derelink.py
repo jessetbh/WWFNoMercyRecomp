@@ -248,6 +248,73 @@ class RefreshHookTests(unittest.TestCase):
         self.assertEqual(outs, {0x80410020})
 
 
+def fake_payload(words_by_vram, extents, shift=None):
+    """A minimal analysis around synthetic payload code at 0x80400000 (ROM 0x1000), for the passes
+    that rewrite payload code in place. extents: [(vram, size)] of payload functions."""
+    import types
+    rom, ram, size = 0x1000, 0x80400000, 0x100
+    buf = bytearray(rom + size)
+    for v, w in words_by_vram.items():
+        put(buf, rom + (v - ram), [w])
+    cand = shift or (lambda a, ctx=None: [])
+    A = types.SimpleNamespace(payload=dict(rom=rom, ram=ram, size=size), region_ctx={},
+                              map=types.SimpleNamespace(candidates=cand), hack=bytes(buf),
+                              extras=[d.Extra('payload', v, v, z) for v, z in extents])
+    return A, bytearray(buf)
+
+
+def wd(buf, A, v):
+    return d.word(buf, A.payload['rom'] + (v - A.payload['ram']))
+
+
+class PayloadStubTests(unittest.TestCase):
+    S0, A0, A1, T1, T2, T3, T5, T9 = 16, 4, 5, 9, 10, 11, 13, 25
+
+    def test_lo_that_no_hi_reaches_goes_through_a_stub(self):
+        # one lui feeds 0x800993F0 and 0x800A261C; after a -0x1530 shift they need different %hi
+        hack = {0x80400000: lui(self.S0, 0x800A), 0x80400004: lw(self.A0, -0x6C10, self.S0),
+                0x80400008: lw(self.A1, 0x261C, self.S0), 0x8040000C: addiu(self.T1, 0, 1),
+                0x80400010: jr(RA), 0x80400014: NOP}
+        shift = lambda a, ctx=None: [a - 0x1530] if 0x80090000 <= a < 0x800B0000 else []
+        A, D = fake_payload(hack, [(0x80400000, 0x18)], shift)
+        put(D, 0x1000 + 8, [lw(self.A1, 0x10EC, self.S0)])      # what rewrite() could do: the majority
+        area, report = bytearray(), {}
+        d.fix_unreachable_lo(A, D, area, report)
+        self.assertEqual(len(report['unreachable_lo_fixed']), 1)
+        stub = d.NEW_CODE_VRAM
+        self.assertEqual(wd(D, A, 0x80400004), j(stub))
+        self.assertEqual(wd(D, A, 0x80400008), NOP)
+        self.assertEqual([d.word(area, 4 * i) for i in range(5)],
+                         [lui(self.A0, 0x8009), lw(self.A0, 0x7EC0, self.A0), lw(self.A1, 0x10EC, self.S0),
+                          j(0x8040000C), NOP])
+        self.assertIn(0x8040000C, [x.vram for x in A.extras if x.kind == 'payload'])
+
+    def test_self_modified_constant_moves_to_a_ram_variable(self):
+        # ori t3, zero, 3 holds a variable; jal getpc / addiu t3, ra, -0xE / sh t2, 0(t3) patches it
+        sh = lambda rt, off, base: (0x29 << 26) | (base << 21) | (rt << 16) | (off & 0xFFFF)
+        hack = {0x80400000: addiu(self.T2, 0, 0x40), 0x80400004: addiu(self.T9, 0, 0),
+                0x80400008: ori(self.T3, 0, 3), 0x8040000C: addiu(self.T5, 0, 1),
+                0x80400010: jal(0x80400040), 0x80400014: NOP,
+                0x80400018: addiu(self.T3, RA, -0xE), 0x8040001C: sh(self.T2, 0, self.T3),
+                0x80400020: jr(RA), 0x80400024: NOP,
+                0x80400040: jr(RA), 0x80400044: NOP}
+        A, D = fake_payload(hack, [(0x80400000, 0x28), (0x80400040, 8)])
+        area, report = bytearray(), {}
+        d.fix_get_pc(A, D, area, report, new_rom=0x400000)
+        var = A.ram_vars[1][0]
+        self.assertEqual(var['ram'], 0x80402000)
+        self.assertEqual(d.word(area, var['rom'] - 0x400000), ori(self.T3, 0, 3))    # preloaded original word
+        vt = var['ram'] + 2
+        self.assertEqual(wd(D, A, 0x80400014), lui(self.T3, (vt + 0x8000) >> 16))      # absolute address,
+        self.assertEqual(wd(D, A, 0x80400018), addiu(self.T3, self.T3, vt & 0xFFFF))   # no ra needed
+        stub = wd(D, A, 0x80400008)
+        self.assertEqual(stub >> 26, 2)
+        s = mips.jump_target(stub, 0x80400008) - d.NEW_CODE_VRAM
+        lhu = (0x25 << 26) | (self.T3 << 21) | (self.T3 << 16) | (vt & 0xFFFF)
+        self.assertEqual([d.word(area, s + 4 * i) for i in range(5)],
+                         [lui(self.T3, (vt + 0x8000) >> 16), lhu, addiu(self.T5, 0, 1), j(0x80400010), NOP])
+
+
 class JumpTableCheckTests(unittest.TestCase):
     def test_table_outside_function_is_flagged(self):
         rom = bytearray(0x200)

@@ -1,0 +1,220 @@
+"""Tests for the de-relink tool on synthetic MIPS snippets (no ROMs needed).
+
+    python -m unittest discover -s tools/romhack/tests -v
+"""
+import os, struct, sys, unittest
+
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
+import bps
+import derelink as d
+import mips
+
+
+# --- tiny assembler --------------------------------------------------------------------------
+def lui(rt, imm): return (0x0F << 26) | (rt << 16) | (imm & 0xFFFF)
+def addiu(rt, rs, imm): return (0x09 << 26) | (rs << 21) | (rt << 16) | (imm & 0xFFFF)
+def ori(rt, rs, imm): return (0x0D << 26) | (rs << 21) | (rt << 16) | (imm & 0xFFFF)
+def lw(rt, imm, rs): return (0x23 << 26) | (rs << 21) | (rt << 16) | (imm & 0xFFFF)
+def sw(rt, imm, rs): return (0x2B << 26) | (rs << 21) | (rt << 16) | (imm & 0xFFFF)
+def addu(rd, rs, rt): return (rs << 21) | (rt << 16) | (rd << 11) | 0x21
+def jal(t): return (3 << 26) | ((t >> 2) & 0x3FFFFFF)
+def j(t): return (2 << 26) | ((t >> 2) & 0x3FFFFFF)
+def jr(rs): return (rs << 21) | 0x08
+def beq(rs, rt, off): return (0x04 << 26) | (rs << 21) | (rt << 16) | (off & 0xFFFF)
+NOP = 0
+AT, V0, V1, A0, A1, T0, S0, RA = 1, 2, 3, 4, 5, 8, 16, 31
+
+
+def hi_lo(addr):
+    return ((addr + 0x8000) >> 16) & 0xFFFF, addr & 0xFFFF
+
+
+class HiLoTests(unittest.TestCase):
+    def test_simple_pair(self):
+        h, l = hi_lo(0x80123456)
+        refs = mips.hilo_refs([lui(A0, h), addiu(A0, A0, l)])
+        self.assertEqual(refs, [(0, 1, 0x80123456)])
+
+    def test_negative_lo(self):
+        h, l = hi_lo(0x8012F000)
+        self.assertEqual(mips.hilo_refs([lui(AT, h), lw(V0, l, AT)])[0][2], 0x8012F000)
+
+    def test_one_lui_many_uses(self):
+        h, _ = hi_lo(0x80050000)
+        refs = mips.hilo_refs([lui(S0, h), lw(V0, 0x10, S0), sw(V1, 0x20, S0)])
+        self.assertEqual([a for _, _, a in refs], [0x80050010, 0x80050020])
+
+    def test_addu_index_keeps_hi(self):
+        h, l = hi_lo(0x80140000)
+        refs = mips.hilo_refs([lui(AT, h), addu(AT, AT, V0), lw(V0, l, AT)])
+        self.assertEqual(refs, [(0, 2, 0x80140000)])
+
+    def test_jal_delay_slot_still_sees_hi(self):
+        # lui a0; jal f; addiu a0, a0, lo  (the argument is formed in the delay slot)
+        h, l = hi_lo(0x80057188)
+        refs = mips.hilo_refs([lui(A0, h), jal(0x80000DB0), addiu(A0, A0, l)])
+        self.assertEqual(refs, [(0, 2, 0x80057188)])
+
+    def test_call_clobbers_after_delay_slot(self):
+        h, l = hi_lo(0x80057188)
+        refs = mips.hilo_refs([lui(A0, h), jal(0x80000DB0), NOP, addiu(A0, A0, l)])
+        self.assertEqual(refs, [])
+
+    def test_overwrite_drops_hi(self):
+        h, l = hi_lo(0x80057188)
+        self.assertEqual(mips.hilo_refs([lui(A0, h), addiu(A0, 0, 5), addiu(A1, A0, l)]), [])
+
+    def test_ori_is_unsigned(self):
+        refs = mips.hilo_refs([lui(T0, 0x8040), ori(T0, T0, 0x9000)])
+        self.assertEqual(refs[0][2], 0x80409000)
+
+
+def shift_map(ranges):
+    """candidates() for a piecewise map: [(lo, hi, delta)]."""
+    def cands(a):
+        for lo, hi, dl in ranges:
+            if lo <= a < hi:
+                return [(a + dl) & 0xFFFFFFFF]
+        return []
+    return cands
+
+
+class RewriteTests(unittest.TestCase):
+    def test_moved_function_becomes_stock(self):
+        # stock references 0x80050000 and calls 0x80001000; the hack moved data +0xA0, code +0x90
+        hh, hl = hi_lo(0x800500A0)
+        sh, sl = hi_lo(0x80050000)
+        hack = [lui(AT, hh), lw(V0, hl, AT), jal(0x80001090), NOP, jr(RA), NOP]
+        stock = [lui(AT, sh), lw(V0, sl, AT), jal(0x80001000), NOP, jr(RA), NOP]
+        cands = shift_map([(0x80040000, 0x80060000, -0xA0), (0x80000400, 0x80040000, -0x90)])
+        probs = []
+        out = d.rewrite(hack, 0x80002090, 0x80002000, cands, stock, probs)
+        self.assertEqual(out, stock)
+        self.assertEqual(probs, [])
+
+    def test_real_change_is_kept(self):
+        hh, hl = hi_lo(0x800500A0)
+        hack = [lui(AT, hh), lw(V0, hl, AT), addiu(V0, V0, 0x60), jr(RA), NOP]   # 0x39 -> 0x60 style edit
+        stock = [lui(AT, hh), lw(V0, hl - 0xA0, AT), addiu(V0, V0, 0x39), jr(RA), NOP]
+        out = d.rewrite(hack, 0x80002000, 0x80002000, shift_map([(0x80040000, 0x80060000, -0xA0)]), stock, [])
+        self.assertEqual(out[2], addiu(V0, V0, 0x60))
+        self.assertEqual(out[1], stock[1])
+
+    def test_rewrite_crosses_64k_boundary(self):
+        # hack 0x80060010 -> stock 0x8005FF70: the %hi half changes too
+        hh, hl = hi_lo(0x80060010)
+        out = d.rewrite([lui(AT, hh), lw(V0, hl, AT)], 0x80001000, 0x80001000,
+                        shift_map([(0x80040000, 0x80070000, -0xA0)]), None, [])
+        self.assertEqual(mips.hilo_refs(out)[0][2], 0x8005FF70)
+
+    def test_jump_inside_function_follows_placement(self):
+        hack = [beq(0, 0, 1), NOP, j(0x80003008), NOP]
+        out = d.rewrite(hack, 0x80003000, 0x80007000, shift_map([]), None, [])
+        self.assertEqual(mips.jump_target(out[2], 0x80007008), 0x80007008)
+
+    def test_unresolved_is_reported(self):
+        probs = []
+        d.rewrite([jal(0x80300000), NOP], 0x80001000, 0x80001000, shift_map([]), None, probs)
+        self.assertEqual(probs, [(0, 'jal', 0x80300000)])
+
+    def test_candidate_matching_stock_wins(self):
+        # two plausible overlays (-0x1500 / -0x1530): the one that reproduces the stock word wins
+        def cands(a):
+            return [(a - 0x1500) & 0xFFFFFFFF, (a - 0x1530) & 0xFFFFFFFF]
+        hack = [jal(0x8012F308), NOP]
+        stock = [jal(0x8012F308 - 0x1530), NOP]
+        self.assertEqual(d.rewrite(hack, 0x80001000, 0x80001000, cands, stock, []), stock)
+
+    def test_split_hi_takes_common_shift(self):
+        # one lui feeds two uses whose first choices would need different %hi halves; a shift
+        # valid for both (-0x1500) is used instead
+        def cands(a):
+            if a == 0x80148000:
+                return [(a - 0x12000) & 0xFFFFFFFF, (a - 0x1500) & 0xFFFFFFFF]
+            return [(a - 0x1500) & 0xFFFFFFFF]
+        hack = [lui(S0, 0x8015), lw(V0, -0x8000, S0), lw(V1, -0x7FF0, S0)]   # 0x80148000, 0x80148010
+        probs = []
+        out = d.rewrite(hack, 0x80001000, 0x80001000, cands, None, probs)
+        self.assertEqual(probs, [])
+        self.assertEqual([a for _, _, a in mips.hilo_refs(out)], [0x80146B00, 0x80146B10])
+
+
+class MapTests(unittest.TestCase):
+    def test_runs_from_pairs_and_stray(self):
+        pairs = [(0x80040000 + 4 * i, 0x800400A0 + 4 * i) for i in range(10)]
+        pairs.append((0x80040100, 0x800401A0 + 0x30))                  # one stray
+        pairs += [(0x80040200 + 4 * i, 0x800402A0 + 4 * i) for i in range(10)]
+        pairs += [(0x80050000 + 4 * i, 0x80051530 + 4 * i) for i in range(5)]
+        runs = d.runs_from_pairs(pairs, 0x80040000, 0x80060000)
+        self.assertEqual([r[2] for r in runs], [(-0xA0) & 0xFFFFFFFF, (-0x1530) & 0xFFFFFFFF])
+        self.assertEqual(runs[0][0], 0x80040000)
+        self.assertEqual(runs[-1][1], 0x80060000)
+
+    def test_address_map_overlay_context(self):
+        m = d.AddressMap()
+        m.main = [(0x80000400, 0x80040000, (-0x90) & 0xFFFFFFFF, 'text')]
+        m.ovl = {'ovl_b': [(0x80107C60, 0x80120000, (-0x1500) & 0xFFFFFFFF, 'text')],
+                 'ovl_e': [(0x800DAE90, 0x8016CF10, (-0x1530) & 0xFFFFFFFF, 'text')]}
+        m.finish()
+        self.assertEqual(m.translate(0x80001090), 0x80001000)
+        self.assertEqual(m.translate(0x80110000, 'ovl_b'), 0x8010EB00)
+        self.assertEqual(m.translate(0x80110000, 'ovl_e'), 0x8010EAD0)
+        self.assertEqual(m.translate(0x80420000), 0x80420000)        # Expansion RAM stays
+
+
+def put(buf, off, words):
+    for i, w in enumerate(words):
+        struct.pack_into('>I', buf, off + 4 * i, w)
+
+
+class MatchTests(unittest.TestCase):
+    def test_shifted_functions_and_a_changed_one(self):
+        # stock: three functions at 0x80001000; hack: the same shapes 0x40 later, the middle one reshaped
+        f1 = [addiu(29, 29, -0x18), sw(RA, 0x10, 29), jal(0x80004000), NOP, lw(RA, 0x10, 29), jr(RA), addiu(29, 29, 0x18)]
+        f2 = [lui(AT, 0x8005), lw(V0, 0x10, AT), addiu(V0, V0, 1), sw(V0, 0x10, AT), jr(RA), NOP, NOP]
+        f3 = [lui(A0, 0x8006), addiu(A0, A0, 0x20), jal(0x80004100), NOP, jr(RA), NOP, NOP]
+        f2h = [addiu(V0, 0, 5), addiu(V1, 0, 6), addu(V0, V0, V1), jr(RA), NOP, NOP, NOP]
+        base, hack = bytearray(0x4000), bytearray(0x4000)
+        put(base, 0x1000, f1 + f2 + f3)
+        put(hack, 0x1040, f1 + f2h + f3)
+        sec = d.Section('t', 0x1000, 0x80001000, 0x80001000 + 4 * 21, 0x80001000 + 4 * 21, 0x80001000 + 4 * 21,
+                        [(0, 28), (28, 28), (56, 28)])
+        m = d.match_section(bytes(base), bytes(hack), sec, 0x1000, 0x80001000, 0x80001000 + 0x40 + 4 * 21)
+        self.assertEqual([(s, h) for s, h, z in m.matched], [(0x80001000, 0x80001040), (0x80001038, 0x80001078)])
+        self.assertIn((0x8000101C, 0x80001038, 0x8000105C, 0x80001078), m.chunks)
+
+
+class TraceTests(unittest.TestCase):
+    def test_extent_follows_branches_and_stops_at_jr(self):
+        words = {0x80400000: beq(V0, 0, 3), 0x80400004: NOP, 0x80400008: jr(RA), 0x8040000C: NOP,
+                 0x80400010: j(0x80400100), 0x80400014: NOP, 0x80400018: 0xDEADBEEF}
+        end, jt, jalt, back = d.trace_extent(lambda v: words.get(v, 0), 0x80400000, 0x80400000, 0x80400100)
+        self.assertEqual(end, 0x80400018)
+        self.assertEqual(jt, {0x80400100})
+
+
+class JumpTableCheckTests(unittest.TestCase):
+    def test_table_outside_function_is_flagged(self):
+        rom = bytearray(0x200)
+        h, l = hi_lo(0x80000100)
+        code = [lui(AT, h), addu(AT, AT, V0), lw(V0, l, AT), jr(V0), NOP, jr(RA), NOP]
+        put(rom, 0x0, code)
+        put(rom, 0x100, [0x80000014, 0x80000014])                         # good: inside the function
+        self.assertEqual(d.check_jump_tables(bytes(rom), [(0x80000000, 0x0, 4 * len(code))], [], []), [])
+        put(rom, 0x100, [0x80400000, 0x80000014])                         # first case in hack code...
+        self.assertEqual(len(d.check_jump_tables(bytes(rom), [(0x80000000, 0x0, 4 * len(code))], [], [])), 1)
+        # ...which is fine once the hack's code range is declared
+        self.assertEqual(d.check_jump_tables(bytes(rom), [(0x80000000, 0x0, 4 * len(code))],
+                                             [(0x80400000, 0x80500000)], []), [])
+
+
+class BpsTests(unittest.TestCase):
+    def test_round_trip_with_moved_data(self):
+        src = bytes(range(256)) * 64
+        tgt = src[:1000] + b'new data' + src[3000:9000] + src[100:2000] + bytes(500)
+        patch = bps.bps_encode(src, tgt)
+        self.assertEqual(bps.bps_apply(src, patch), tgt)
+
+
+if __name__ == '__main__':
+    unittest.main()

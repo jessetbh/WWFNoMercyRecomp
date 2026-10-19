@@ -412,7 +412,7 @@ def runs_from_pairs(pairs, lo, hi):
     A lone evidence point whose neighbours agree on another shift is dropped as a stray."""
     per = collections.defaultdict(collections.Counter)
     for s, h in pairs:
-        if lo <= h < hi:
+        if lo <= h < hi and (s - h) & 3 == 0:     # sections move by whole words
             per[h][(s - h) & 0xFFFFFFFF] += 1
     pts = sorted((h, c.most_common(1)[0][0]) for h, c in per.items())
     runs = []                     # [first_h, delta, count]
@@ -421,19 +421,29 @@ def runs_from_pairs(pairs, lo, hi):
             runs[-1][2] += 1
         else:
             runs.append([h, d, 1])
+    # weakly supported runs (a hack edit pointing an instruction elsewhere) between runs that
+    # agree are dropped, smallest first, until the neighbours of every short run differ
     changed = True
     while changed:
         changed = False
-        for i in range(1, len(runs) - 1):
-            if runs[i][2] == 1 and runs[i - 1][1] == runs[i + 1][1]:
-                runs[i - 1][2] += runs[i + 1][2]
-                del runs[i:i + 2]
-                changed = True
+        for need in (1, 2):
+            for i in range(1, len(runs) - 1):
+                if runs[i][2] <= need:
+                    # look past a stretch of short runs for agreeing neighbours
+                    j = i
+                    while j + 1 < len(runs) - 1 and runs[j + 1][2] <= need:
+                        j += 1
+                    if runs[i - 1][1] == runs[j + 1][1]:
+                        runs[i - 1][2] += runs[j + 1][2]
+                        del runs[i:j + 2]
+                        changed = True
+                        break
+            if changed:
                 break
     out = []
     for i, (h, d, n) in enumerate(runs):
-        start = lo if i == 0 else h
-        end = runs[i + 1][0] if i + 1 < len(runs) else hi
+        start = lo if i == 0 else (h & ~3)
+        end = (runs[i + 1][0] & ~3) if i + 1 < len(runs) else hi
         out.append((start, end, d))
     # the last evidence of each run bounds where the next shift can start
     runs_from_pairs.last_evidence = []
@@ -476,12 +486,23 @@ class Analysis:
         self.units = {}
         self.resized = []
         self.shrunk = {}         # (section, stock vram) -> hack size, for functions the hack shortened
+        self.reshaped = []       # (section, stock lo, stock hi, hack lo, hack hi) rebuilt by the hack
         for name, m in self.matches.items():
             u = list(m.matched)
+            st = self.byname[name]
+            hrom_, htext_ = self.place[name][:2]
             for slo, shi, hlo, hhi in m.chunks:
                 if shi - slo == hhi - hlo:
                     if shi > slo:
-                        u.append((slo, hlo, shi - slo))
+                        n = (shi - slo) // 4
+                        same = sum(mips.masked(word(base, st.rom_of(slo) + 4 * i)) ==
+                                   mips.masked(word(hack, hrom_ + (hlo - htext_) + 4 * i)) for i in range(n))
+                        if name != 'main' and n >= 16 and same < n // 2:
+                            # the hack rebuilt this stretch (new functions, tables inside code):
+                            # it moves whole to the new-code area instead of being ported in place
+                            self.reshaped.append((name, slo, shi, hlo, hhi))
+                        else:
+                            u.append((slo, hlo, shi - slo))
                 elif shi > slo or hhi > hlo:
                     st = self.byname[name]
                     inside = [o for o, z in st.funcs if slo <= st.text + o < shi]
@@ -494,6 +515,37 @@ class Analysis:
                         self.resized.append((name, slo, shi, hlo, hhi))
             self.units[name] = sorted(u)
         self.build_map()
+        self.move_main_rewrites()
+
+    def move_main_rewrites(self):
+        """Main's resized stretch (the Rev 0 flash-save code) moves whole to the new-code area
+        instead of staying stock Rev 1: hacks edit the code around it (V3 enlarges the save
+        records), so only the hack's own version is consistent. Its Rev 0-sized buffers (main bss
+        pieces that don't line up with Rev 1) get their own block past the payload."""
+        zones = keep_stock_zones(self, 'main')
+        m = self.matches['main']
+        for zlo, zhi in zones:
+            if zhi - zlo < 0x100:
+                continue            # a small libultra difference: stays stock
+            before = [(s, h, z) for s, h, z in m.matched if s + z <= zlo]
+            after = [(s, h, z) for s, h, z in m.matched if s >= zhi]
+            if not before or not after:
+                continue
+            hlo = zlo + (before[-1][1] - before[-1][0])
+            hhi = zhi + (after[0][1] - after[0][0])
+            self.reshaped.append(('main', zlo, zhi, hlo, hhi))
+            self.units['main'] = [u for u in self.units['main'] if not (zlo <= u[0] < zhi)]
+            self.resized = [r for r in self.resized if not (r[0] == 'main' and zlo <= r[1] < zhi)]
+        # the save buffers: main data runs between the first and last shift
+        runs = [(lo, hi, d) for lo, hi, d, k in self.map.main if k == 'data']
+        self.save_area = None
+        if len(runs) > 2 and any(r[0] == 'main' for r in self.reshaped):
+            lo, hi = runs[1][0], runs[-1][0]
+            pay = find_payload(self.hack)
+            base = ((pay['ram'] + pay['size']) + 0xFFFF) & ~0xFFFF if pay else 0x80600000
+            self.save_area = (lo, hi, base)
+            self.map.priority.append((lo, hi, (base - lo) & 0xFFFFFFFF, 'save'))
+            self.map.priority.sort()
 
     def hack_rom_of(self, name, vram):
         hrom, htext = self.place[name][:2]
@@ -569,7 +621,7 @@ class Analysis:
             return 1 if word(self.hack, hrom + (y - htext)) == word(self.base, st.rom_of(x)) else 0
         out = [list(r) for r in runs]
         for i in range(len(out) - 1):
-            a, b = last_ev[i] + 4, out[i + 1][0]
+            a, b = (last_ev[i] + 4) & ~3, out[i + 1][0] & ~3
             if b - a > 0x4000 or b <= a:
                 continue
             d1, d2 = out[i][2], out[i + 1][2]
@@ -668,8 +720,10 @@ def rewrite(words, hack_pc, new_pc, candidates, stock_words=None, problems=None)
         if same(idx):
             continue
         new = []
+        all_cands = {}
         for lo, a in uses:
             cs = cands(a, ram_only=False)
+            all_cands[lo] = cs
             pick = None
             if has_stock:
                 for c in cs:
@@ -687,9 +741,27 @@ def rewrite(words, hack_pc, new_pc, candidates, stock_words=None, problems=None)
             new.append((lo, pick))
         his = {halves(words[lo], na)[0] for lo, na in new}
         if len(his) != 1:
+            # one lui feeds uses that picked different overlays: use one shift that suits them all
+            uses_a = dict(uses)
+            shift_sets = [{(c - uses_a[lo]) & 0xFFFFFFFF for c in all_cands[lo] if c >= 0x80000000}
+                          for lo, _ in new if uses_a[lo] >= 0x80000000]
+            common = set.intersection(*shift_sets) if shift_sets else set()
+            if common:
+                firsts = collections.Counter(((all_cands[lo][0] - uses_a[lo]) & 0xFFFFFFFF) for lo, _ in new
+                                             if all_cands[lo])
+                shift = max(common, key=lambda d: firsts.get(d, 0))
+                new = [(lo, (uses_a[lo] + shift) & 0xFFFFFFFF) if uses_a[lo] >= 0x80000000 else (lo, na)
+                       for lo, na in new]
+                his = {halves(words[lo], na)[0] for lo, na in new}
+        if len(his) != 1:
+            # keep the majority; leave the odd uses as they were and report them
+            count = collections.Counter(halves(words[lo], na)[0] for lo, na in new)
+            major = count.most_common(1)[0][0]
+            odd = [(lo, na) for lo, na in new if halves(words[lo], na)[0] != major]
             if problems is not None:
-                problems.append((hi, 'split-hi', [hex(na) for _, na in new]))
-            continue
+                problems.append((hi, 'split-hi', [hex(na) for _, na in odd]))
+            new = [(lo, na) for lo, na in new if halves(words[lo], na)[0] == major]
+            his = {major}
         out[hi] = (words[hi] & 0xFFFF0000) | his.pop()
         for lo, na in new:
             out[lo] = (words[lo] & 0xFFFF0000) | (na & 0xFFFF)
@@ -824,36 +896,37 @@ class Extra:
 
 
 def discover_extra_code(A):
-    """Find the hack's code outside the stock text: payload functions, main-data caves and
-    mid-function return points. Fills A.payload, A.extras, A.cave_map."""
+    """Find the hack's code outside the stock text: payload functions, main-data caves, chunks
+    the hack reshaped (moved whole to the new-code area) and mid-function return points.
+    Fills A.payload, A.extras, A.region_entries, A.new_blocks and the map's priority ranges."""
     A.payload = find_payload(A.hack)
     main = A.byname['main']
     hrom, htext, htext_end = A.place['main'][:3]
     data_shift = A.map.translate(htext_end) - htext_end           # main data: one shift
     hack_main_data = (htext_end, main.bss - data_shift)
+    # regions: (name, lo, hi, get_word, section or None); a reshaped chunk only receives jumps
+    # from its own section's code (overlays share addresses)
     regions = []
     if A.payload:
         p = A.payload
-        regions.append(('payload', p['ram'], p['ram'] + p['size'], lambda v, p=p: word(A.hack, p['rom'] + (v - p['ram']))))
-    regions.append(('cave', hack_main_data[0], hack_main_data[1], lambda v: word(A.hack, hrom + (v - htext))))
-    if A.payload:     # the entry hook's own cave is replaced by a native preload
-        skip = {A.payload['cave']}
-    else:
-        skip = set()
+        regions.append(('payload', p['ram'], p['ram'] + p['size'], lambda v, p=p: word(A.hack, p['rom'] + (v - p['ram'])), None))
+    regions.append(('cave', hack_main_data[0], hack_main_data[1], lambda v: word(A.hack, hrom + (v - htext)), None))
+    for name, slo, shi, hlo, hhi in A.reshaped:
+        regions.append(('reshaped', hlo, hhi, lambda v, name=name: word(A.hack, A.hack_rom_of(name, v)), name))
+    skip = {A.payload['cave']} if A.payload else set()
 
-    def region_of(a):
+    def region_of(a, src=None):
         for r in regions:
-            if r[1] <= a < r[2]:
+            if r[1] <= a < r[2] and (r[4] in (None, 'main') or r[4] == src):
                 return r
         return None
 
-    # seeds: j/jal from every hack text section into a region
-    work = []
+    work = []                                   # (address, source section or None)
     for name, (srom, stext, stext_end, _, _) in A.place.items():
         words = [word(A.hack, srom + 4 * i) for i in range((stext_end - stext) // 4)]
         for i, kind, t in mips.jumps(words, stext):
-            if region_of(t) and t not in skip:
-                work.append(t)
+            if region_of(t, name) and t not in skip:
+                work.append((t, name))
     # seeds from data: jump-table cases and function pointers the hack pointed at its own code
     # (the stock word at the same place is a code address)
     stock_text = [(st.text, st.data) for st in A.secs]
@@ -871,69 +944,119 @@ def discover_extra_code(A):
                 if not (st.data <= x < st.bss):
                     continue
                 hw = word(A.hack, srom + (y - stext))
-                if region_of(hw) and hw not in skip:
+                if hw & 3 == 0 and region_of(hw, name) and hw not in skip:
                     sw = word(A.base, st.rom_of(x))
                     if any(a <= sw < b for a, b in stock_text):
-                        work.append(hw)
+                        work.append((hw, name))
                         data_seed_owner.setdefault(hw, set()).add((name, sw))
-    entries = {}
+    entries = {}                                # address -> (region, end, back)
     text_jumps = set()
-    while work:
-        e = work.pop()
-        if e in entries or e in skip:
-            continue
-        r = region_of(e)
-        end, jt, jalt, back = trace_extent(r[3], e, r[1], r[2])
-        entries[e] = (r[0], end, back)
-        for t in jt | jalt:
-            if region_of(t):
-                work.append(t)
-            elif t not in skip:
-                text_jumps.add(t)
-    A.region_entries = entries
-    A.text_jumps = text_jumps
 
-    # caves move to the new-code area, keeping their relative layout
-    caves = sorted((e, end) for e, (k, end, _) in entries.items() if k == 'cave')
-    A.cave_map = []
+    def run(work):
+        while work:
+            e, src = work.pop()
+            if e in entries or e in skip:
+                continue
+            r = region_of(e, src)
+            if r is None:
+                continue
+            end, jt, jalt, back = trace_extent(r[3], e, r[1], r[2])
+            entries[e] = (r, end, back)
+            inner = r[4]                        # code in a reshaped chunk keeps its section
+            for t in jt | jalt:
+                if region_of(t, inner):
+                    work.append((t, inner))
+                elif t not in skip:
+                    text_jumps.add((t, inner))
+    run(work)
+
+    # code reached from region code by j (not jal) chains, for hook-return ownership
+    reach_from = {}
+    def reach(e0, src):
+        key = (e0, src)
+        if key in reach_from:
+            return reach_from[key]
+        seen, out, todo = set(), set(), [(e0, src)]
+        while todo:
+            e, s = todo.pop()
+            if e in seen:
+                continue
+            seen.add(e)
+            r = region_of(e, s)
+            if r is None:
+                out.add(e)
+                continue
+            end, jt, jalt, back = trace_extent(r[3], e, r[1], r[2])
+            for t in jt:
+                todo.append((t, r[4]))
+        reach_from[key] = out
+        return out
+
+    # hooks entered from a reshaped chunk return into it: those points are entries of the chunk
+    for _ in range(3):
+        more = []
+        for r in regions:
+            if r[0] != 'reshaped':
+                continue
+            words = [r[3](v) for v in range(r[1], r[2], 4)]
+            for i, kind, t in mips.jumps(words, r[1]):
+                if kind == 'j' and region_of(t) and not (r[1] <= t < r[2]):
+                    for b in reach(t, None):
+                        if r[1] <= b < r[2] and b not in entries:
+                            more.append((b, r[4]))
+        if not more:
+            break
+        run(more)
+    A.region_entries = entries
+    A.text_jumps = {t for t, _ in text_jumps}
+
+    # the new-code area: caves (one span) and each reshaped chunk, whole, in hack layout
+    A.new_blocks = []                           # (kind, section, hack lo, hack hi, new vram)
+    cur = NEW_CODE_VRAM
+    caves = sorted((e, end) for e, (r, end, _) in entries.items() if r[0] == 'cave')
     if caves:
         lo, hi = caves[0][0], max(end for _, end in caves)
-        A.cave_map = [(lo, hi, (NEW_CODE_VRAM - lo) & 0xFFFFFFFF)]
-        A.map.priority = [(lo, hi, (NEW_CODE_VRAM - lo) & 0xFFFFFFFF, 'cave')]
+        A.new_blocks.append(('cave', None, lo, hi, cur))
+        cur = (cur + (hi - lo) + 15) & ~15
+    for name, slo, shi, hlo, hhi in A.reshaped:
+        A.new_blocks.append(('reshaped', name, hlo, hhi, cur))
+        cur = (cur + (hhi - hlo) + 15) & ~15
+    A.map.priority = sorted([r for r in A.map.priority if r[3] == 'save'] +
+                            [(lo, hi, (nv - lo) & 0xFFFFFFFF, k) for k, sec, lo, hi, nv in A.new_blocks
+                             if k == 'cave' or sec == 'main'])
+    for k, sec, lo, hi, nv in A.new_blocks:
+        if k == 'reshaped' and sec != 'main':
+            A.map.ovl[sec].append((lo, hi, (nv - lo) & 0xFFFFFFFF, 'reshaped'))
+    A.map.finish()
+    for name in A.map.ovl:      # a reshaped range replaces the text ranges it overlaps
+        rs = A.map.ovl[name]
+        resh = [(lo, hi) for lo, hi, d, k in rs if k == 'reshaped']
+        A.map.ovl[name] = [r for r in rs if r[3] == 'reshaped' or not any(lo <= r[0] < hi for lo, hi in resh)]
+
+    def new_vram(e, r):
+        for k, sec, lo, hi, nv in A.new_blocks:
+            if lo <= e < hi and (sec is None or sec == r[4]):
+                return nv + (e - lo)
+        return None
+
     extras = []
-    for e, (k, end, back) in sorted(entries.items()):
-        v = e if k == 'payload' else A.map.translate(e)
-        x = Extra(k, e, v, end - e)
+    for e, (r, end, back) in sorted(entries.items(), key=lambda kv: kv[0]):
+        if r[0] == 'payload':
+            v = e
+        else:
+            v = new_vram(e, r)
+        x = Extra(r[0], e, v, end - e, section=r[4])
         extras.append(x)
 
     # mid-function return points: a hook entered by a `j` from function U returns into U
-    reach_from = {}
-    def reach(e0):
-        if e0 in reach_from:
-            return reach_from[e0]
-        seen, out, work = set(), set(), [e0]
-        while work:
-            e = work.pop()
-            if e in seen or e not in entries:
-                continue
-            seen.add(e)
-            r = region_of(e)
-            end, jt, jalt, back = trace_extent(r[3], e, r[1], r[2])
-            for t in jt:
-                if region_of(t):
-                    work.append(t)
-                else:
-                    out.add(t)
-        reach_from[e0] = out
-        return out
     owners = collections.defaultdict(set)          # hack text address -> {(section, s, h, z)}
     for name, units in A.units.items():
         srom, stext = A.place[name][:2]
         for s, h, z in units:
             words = [word(A.hack, srom + (h - stext) + 4 * i) for i in range(z // 4)]
             for i, kind, t in mips.jumps(words, h):
-                if kind == 'j' and region_of(t):
-                    for b in reach(t):
+                if kind == 'j' and region_of(t, name) and not region_of(t, name)[0] == 'reshaped':
+                    for b in reach(t, name):
                         if h < b < h + z:
                             owners[b].add((name, s, h, z))
     # hooks entered from a redirected switch case return into the function that owned the case
@@ -941,18 +1064,23 @@ def discover_extra_code(A):
         for name, sw in owners_of:
             for s, h, z in A.units.get(name, []):
                 if s <= sw < s + z:
-                    for b in reach(hw):
+                    for b in reach(hw, name):
                         if h < b < h + z:
                             owners[b].add((name, s, h, z))
     starts = {h for units in A.units.values() for s, h, z in units}
     stock_starts = {st.text + o for st in A.secs for o, z in st.funcs}
-    for t in sorted(text_jumps):
+    resh_ranges = [(lo, hi) for k, sec, lo, hi, nv in A.new_blocks if k == 'reshaped']
+    for t in sorted(A.text_jumps):
+        if t in entries:
+            continue
         if t in starts and t not in owners:
             continue
         if t not in owners and A.map.translate(t) in stock_starts:
             continue        # a tail call to a function the map knows (e.g. inside resized code)
         own = owners.get(t)
         if not own:
+            if any(lo <= t < hi for lo, hi in resh_ranges):
+                continue    # into a reshaped chunk from code that can't say which overlay: no entry
             x = Extra('mid', t, None, 0)
             x.problems.append(('mid-unowned', t))
             extras.append(x)
@@ -980,7 +1108,7 @@ def code_spans(extras, kind):
 def translate_data(A, D, report):
     """Copy the hack's data changes into the stock data images in D (pointers translated).
     Words equal to stock, or whose translation equals stock, keep the stock value."""
-    skip = code_spans(A.extras, 'cave')
+    skip = [(lo, hi) for k, sec, lo, hi, nv in A.new_blocks if k == 'cave']
     if A.payload:
         cave = A.payload['cave']
         skip.append((cave, cave + 0x100))
@@ -988,6 +1116,8 @@ def translate_data(A, D, report):
     for name, (hrom, htext, htext_end, hdata, hend) in A.place.items():
         if name == 'entry' or name in getattr(A, 'experiment_no_data', ()):
             continue
+        skip_ranges = [tuple(int(v, 16) for v in e.split(':')[1].split('-'))
+                       for e in getattr(A, 'experiment_no_data', ()) if e.startswith(name + ':')]
         st = A.byname[name]
         ctx = A.ctx_of_hack(name)
         rs = A.map.main if name == 'main' else A.map.ovl[name]
@@ -1008,7 +1138,7 @@ def translate_data(A, D, report):
                 hw = word(A.hack, hrom + (y - htext))
                 xr = st.rom_of(x)
                 sw = word(A.base, xr)
-                if hw == sw:
+                if hw == sw or any(a <= x < b for a, b in skip_ranges):
                     continue
                 cs = A.map.candidates(hw, ctx) if 0x80000000 <= hw < 0x80800000 or hw < 0x00800000 else []
                 if sw in cs:
@@ -1049,6 +1179,49 @@ def payload_fixups(A, D, report):
     report['payload_pointers_translated'] = ptrs
 
 
+def patch_unsupported_instructions(D, functions, report):
+    """The live recompiler only reads COP0 Status. Hacks read COP0 Random (\$1) as a cheap random
+    number: replace `mfc0 rt, $Random` with `mflo rt` (LO, the last multiply's leftover, varies
+    with game state too). [(vram, rom, size)]"""
+    n = 0
+    for vram, rom, size in functions:
+        for i in range(size // 4):
+            w = word(D, rom + 4 * i)
+            if w >> 21 == (0x10 << 5) | 0x00 and ((w >> 11) & 31) == 1 and (w & 0x7FF) == 0:
+                put_word(D, rom + 4 * i, (((w >> 16) & 31) << 11) | 0x12)
+                n += 1
+    report['cop0_random_replaced'] = n
+
+
+def add_branch_out_entries(A, D, ports, rounds=4):
+    """Branches that leave a function (IDO shares tails between functions) become lookup tail
+    calls in the live recompiler, so their targets must be registered: add each target as an
+    entry point of the stock function containing it."""
+    have = {(x.section, x.vram) for x in A.extras if x.kind == 'mid'}
+    bodies = [(p.section, p.stock_vram, p.size) for p in ports if p.status == 'changed']
+    bodies += [(x.section, x.vram, x.size) for x in A.extras if x.kind == 'mid' and x.vram]
+    for _ in range(rounds):
+        new = []
+        for sec, vram, size in bodies:
+            st = A.byname[sec]
+            for i in range(size // 4):
+                v = vram + 4 * i
+                t = mips.branch_target(word(D, st.rom_of(v)), v)
+                if t is None or vram <= t < vram + size or (sec, t) in have:
+                    continue
+                inside = [(st.text + o, z) for o, z in st.funcs if st.text + o < t < st.text + o + z]
+                if not inside or any(st.text + o == t for o, z in st.funcs):
+                    continue        # a real function start is registered already
+                fs, fz = min(inside, key=lambda f: f[1])
+                x = Extra('mid', None, t, fs + fz - t, section=sec)
+                A.extras.append(x)
+                have.add((sec, t))
+                new.append((sec, t, fs + fz - t))
+        if not new:
+            break
+        bodies = new
+
+
 def assemble(A, report):
     """The stock-layout ROM: stock code/data with the hack's changes, the hack's assets and
     payload, and the new-code area appended. Returns (rom bytes, relink manifest)."""
@@ -1069,21 +1242,42 @@ def assemble(A, report):
     report['resized'] = resized
     translate_data(A, D, report)
     payload_fixups(A, D, report)
-    # new-code area: caves, rewritten at their new addresses
+    # new-code area: caves and reshaped chunks, copied whole, their code rewritten in place
     new_rom = (len(D) + 0xFFFF) & ~0xFFFF
-    hrom, htext = A.place['main'][:2]
     area = bytearray()
     cave_probs = []
-    for lo, hi in code_spans(A.extras, 'cave'):
-        words = [word(A.hack, hrom + (v - htext)) for v in range(lo, hi, 4)]
-        nv = A.map.translate(lo)
-        nw = rewrite(words, lo, nv, lambda a: A.map.candidates(a, None), None, cave_probs)
+    for kind, sec, lo, hi, nv in A.new_blocks:
+        get = (lambda v, sec=sec: word(A.hack, A.hack_rom_of(sec, v))) if sec else               (lambda v: word(A.hack, A.place['main'][0] + (v - A.place['main'][1])))
         off = nv - NEW_CODE_VRAM
-        if len(area) < off + 4 * len(nw):
-            area.extend(bytes(off + 4 * len(nw) - len(area)))
-        for i, w in enumerate(nw):
+        if len(area) < off + (hi - lo):
+            area.extend(bytes(off + (hi - lo) - len(area)))
+        raw = [get(v) for v in range(lo, hi, 4)]
+        for i, w in enumerate(raw):
             put_word(area, off + 4 * i, w)
+        spans = [(a_, b_) for a_, b_ in code_spans([x for x in A.extras if x.section == sec], kind)
+                 if lo <= a_ < hi]
+        cand = lambda a, sec=sec: A.map.candidates(a, sec)
+        for a_, b_ in spans:
+            words = raw[(a_ - lo) // 4:(b_ - lo) // 4]
+            nw = rewrite(words, a_, nv + (a_ - lo), cand, None, cave_probs)
+            for i, w in enumerate(nw):
+                put_word(area, off + (a_ - lo) + 4 * i, w)
+        if kind == 'reshaped':
+            # words outside the code are tables: translate pointers into code the hack moved
+            for i, w in enumerate(raw):
+                v = lo + 4 * i
+                if lo <= w < hi and w & 3 == 0:
+                    # a case address inside the chunk (tables sit between code the trace covers)
+                    put_word(area, off + 4 * i, nv + (w - lo))
+                    continue
+                if any(a_ <= v < b_ for a_, b_ in spans):
+                    continue
+                if 0x80000400 <= w < 0x80400000 and w & 3 == 0:
+                    c = A.map.translate(w, sec)
+                    if c is not None:
+                        put_word(area, off + 4 * i, c)
     report['cave_problems'] = cave_probs
+    add_branch_out_entries(A, D, ports)
     functions = []
     copies = 0
     for x in A.extras:
@@ -1092,9 +1286,9 @@ def assemble(A, report):
         if x.kind == 'payload':
             x.rom = A.payload['rom'] + (x.vram - A.payload['ram'])
             floor = A.payload['ram']
-        elif x.kind == 'cave':
+        elif x.kind in ('cave', 'reshaped'):
             x.rom = new_rom + (x.vram - NEW_CODE_VRAM)
-            floor = NEW_CODE_VRAM
+            floor = max(nv for k, sec, lo, hi, nv in A.new_blocks if nv <= x.vram)
         else:
             st = A.byname[x.section]
             x.rom = st.rom_of(x.vram)
@@ -1102,21 +1296,19 @@ def assemble(A, report):
         f = dict(vram=x.vram, rom=x.rom, size=x.size, kind=x.kind)
         if x.kind == 'mid' and A.byname[x.section].slot is not None:
             f['section_rom'] = A.byname[x.section].rom
-        src = D if x.kind != 'cave' else None
+        src = D if x.kind not in ('cave', 'reshaped') else None
         get = (lambda v, x=x: word(D, x.rom + (v - x.vram))) if src is not None else               (lambda v: word(area, v - NEW_CODE_VRAM))
         back = []
         for v in range(x.vram, x.vram + x.size, 4):
             w = get(v)
-            t = mips.branch_target(w, v)
-            if t is None and w >> 26 == 2:
-                t = mips.jump_target(w, v)
+            t = mips.branch_target(w, v)     # loops branch; a backward j is a tail call
             if t is not None and floor <= t < x.vram:
                 back.append(t)
         if back:
             # loops reach back above the entry: compile a copy of [lowest target, end) at its own
             # addresses, preceded by a branch to the real entry, and register it under the entry
             lo = min(back)
-            if x.kind == 'cave':
+            if x.kind in ('cave', 'reshaped'):
                 get_src = lambda v: word(area, v - NEW_CODE_VRAM)
             elif x.kind == 'payload':
                 get_src = lambda v: word(D, A.payload['rom'] + (v - A.payload['ram']))
@@ -1137,22 +1329,35 @@ def assemble(A, report):
         elif x.kind == 'mid':
             st = A.byname[x.section]
             f['data'] = [st.text, st.bss, st.rom]
+        if f['size'] <= 0 or f['size'] & 3 or f['vram'] & 3 or f['rom'] + f['size'] > len(D) + len(area) + 0x10000:
+            report.setdefault('bad_functions', []).append(f)
+            continue
         functions.append(f)
     report['back_branch_copies'] = copies
     if area:
         D.extend(bytes(new_rom - len(D)))
         D.extend(area)
         D.extend(bytes((-len(D)) % 16))
+    patch_unsupported_instructions(D, [(f['vram'], f['rom'], f['size']) for f in functions] +
+                                   [(p.stock_vram, A.byname[p.section].rom_of(p.stock_vram), p.size)
+                                    for p in ports if p.status == 'changed'], report)
     code_ranges = []
     if A.payload:
         code_ranges.append([A.payload['ram'], A.payload['ram'] + A.payload['size']])
     if area:
         code_ranges.append([NEW_CODE_VRAM, NEW_CODE_VRAM + len(area)])
-    manifest = dict(format=1, base='nomercy-rev1', functions=functions, code_ranges=code_ranges)
+    data_ranges = []
+    if A.payload:
+        data_ranges.append([A.payload['ram'], A.payload['ram'] + A.payload['size'], A.payload['rom']])
+    manifest = dict(format=1, base='nomercy-rev1', functions=functions, code_ranges=code_ranges,
+                    data_ranges=data_ranges)
     if A.payload:
         p = A.payload
         manifest['preload'] = [dict(rom=p['rom'], ram=p['ram'], size=p['size'])]
         manifest['zero'] = [dict(ram=p['zero_lo'], size=p['zero_hi'] - p['zero_lo'])]
+    if getattr(A, 'save_area', None):
+        lo, hi, base = A.save_area
+        manifest.setdefault('zero', []).append(dict(ram=base, size=(hi - lo + 0xF) & ~0xF))
     return bytes(D), manifest
 
 
@@ -1167,7 +1372,7 @@ def summarize(A, report):
         sum(1 for p in ports if p.status == 'changed'),
         ', '.join('%s %08X-%08X' % (n, a, b) for n, a, b, _, _ in report['resized'] if b > a) or 'none'))
     k = collections.Counter(x.kind for x in A.extras)
-    lines.append('extra functions: %d payload, %d cave, %d mid-function return points' % (k['payload'], k['cave'], k['mid']))
+    lines.append('extra functions: %d payload, %d cave, %d reshaped, %d mid-function return points' % (k['payload'], k['cave'], k['reshaped'], k['mid']))
     lines.append('data words changed: %d; payload pointers translated: %d' % (report['data_words_changed'], report.get('payload_pointers_translated', 0)))
     probs = [(p.section, p.stock_vram, x) for p in ports if p.status == 'changed' for x in p.problems]
     probs += [('payload', 0, x) for x in report.get('payload_code_problems', [])]
@@ -1233,6 +1438,13 @@ def main(argv=None):
     report = {}
     D, manifest = assemble(A, report)
     print(summarize(A, report))
+    funcs = [(f['vram'], f['rom'], f['size'], f.get('data')) for f in manifest['functions']]
+    funcs += [(p.stock_vram, A.byname[p.section].rom_of(p.stock_vram), p.size) for p in report['ports'] if p.status == 'changed']
+    bad = check_jump_tables(D, funcs, manifest['code_ranges'], manifest.get('data_ranges', []))
+    for vram, pc, table, why in bad:
+        print('  JUMP TABLE: function 0x%08X, jr at 0x%08X, table 0x%08X: %s' % (vram, pc, table, why))
+    if bad:
+        print('WARNING: %d jump table(s) the runtime would reject (the mod would fail to load)' % len(bad))
     if args.cmd == 'analyze':
         return
     import bps
@@ -1257,6 +1469,49 @@ def main(argv=None):
     if args.rom_out:
         open(args.rom_out, 'wb').write(D)
     print('wrote %s (patch %d bytes, mod %d bytes, %d extra functions)' % (args.out, len(patch), len(buf.getvalue()), len(manifest['functions'])))
+
+
+
+# ------------------------------------------------------------------------- offline checks
+
+def check_jump_tables(D, functions, code_ranges, data_ranges):
+    """Find jump tables the runtime's live recompiler would reject: (vram, jr pc, table, reason).
+    functions: [(vram, rom, size)]. Mirrors N64Recomp's analysis: a `lw reg, %lo(T)` feeding
+    `jr reg`; entries are read until one falls outside the function (or the hack code ranges)."""
+    bad = []
+    for f in functions:
+        vram, rom, size = f[:3]
+        own = [tuple(f[3])] if len(f) > 3 and f[3] else []
+        words = [word(D, rom + 4 * i) for i in range(size // 4)]
+        loads = {}
+        for hi, lo, a in mips.hilo_refs(words):
+            if words[lo] >> 26 == 0x23:
+                loads[lo] = a
+        for i, w in enumerate(words):
+            if w >> 26 != 0 or (w & 0x3F) != 0x08 or ((w >> 21) & 31) == 31:
+                continue
+            reg = (w >> 21) & 31
+            table = None
+            for j in range(i - 1, max(-1, i - 12), -1):
+                if j in loads and ((words[j] >> 16) & 31) == reg:
+                    table = loads[j]
+                    break
+            if table is None:
+                continue                # an indirect tail call, not a table
+            trom = None
+            for lo, hi, r in own + list(data_ranges):
+                if lo <= table < hi:
+                    trom = r + (table - lo)
+            if trom is None:
+                trom = rom + (table - vram)
+            if not (0 <= trom < len(D) - 4):
+                bad.append((vram, vram + 4 * i, table, 'table outside the ROM'))
+                continue
+            first = word(D, trom)
+            inside = vram <= first < vram + size or any(lo <= first < hi for lo, hi in code_ranges)
+            if not inside:
+                bad.append((vram, vram + 4 * i, table, 'first entry 0x%08X outside the function' % first))
+    return bad
 
 
 if __name__ == '__main__':

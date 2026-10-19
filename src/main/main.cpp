@@ -799,73 +799,36 @@ static void register_mod_input_exports() {
 static std::string conversion_codes_text;
 static bool conversion_has_codes = false;
 
-static bool conversion_id_valid(const std::string& id) {
-    if (id.empty() || id.size() > 48 || id == "." || id == "..") {
-        return false;
-    }
-    return std::all_of(id.begin(), id.end(), [](char c) {
-        return (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '_' || c == '.' || c == '-';
-    });
-}
+// [fullconv] The runtime's loader (librecomp conversion.cpp) owns aki.json: AKI_CONVERSION, the id rules and the
+// codes file path. The codes are fetched from it the first time the cheats mod asks (after the mod scan has loaded
+// the conversion), so there's one manifest reader.
+static void load_conversion_codes(const std::filesystem::path&) {}
 
-static void load_conversion_codes(const std::filesystem::path& app_folder) {
-    namespace fs = std::filesystem;
-    const char* env = getenv("AKI_CONVERSION");
-    if (env == nullptr || *env == '\0') {
+static void fetch_conversion_codes() {
+    static bool fetched = false;
+    if (fetched) {
         return;
     }
-    const std::string id = env;
-    if (!conversion_id_valid(id)) {
-        fprintf(stderr, "[conversion] AKI_CONVERSION '%s' isn't a valid id ([a-z0-9_.-], at most 48); ignored\n", env);
-        return;
-    }
-    const fs::path dir = app_folder / "conversions" / id;
-    std::string codes_file;
-    try {
-        std::ifstream manifest_file(dir / "conversion.json", std::ios::binary);
-        if (!manifest_file) {
-            fprintf(stderr, "[conversion] %s: no conversion.json in %s\n", id.c_str(), dir.string().c_str());
-            return;
-        }
-        const nlohmann::json manifest = nlohmann::json::parse(manifest_file);
-        const auto components = manifest.find("components");
-        if (components == manifest.end() || !components->contains("codes")) {
-            fprintf(stderr, "[conversion] %s: no codes component\n", id.c_str());
-            return;
-        }
-        codes_file = components->at("codes").at("file").get<std::string>();
-    }
-    catch (const std::exception& e) {
-        fprintf(stderr, "[conversion] %s: bad conversion.json (%s)\n", id.c_str(), e.what());
-        return;
-    }
-    // The codes file must stay inside the conversion's folder.
-    const fs::path rel = fs::path(codes_file).lexically_normal();
-    if (codes_file.empty() || rel.is_absolute() || rel.has_root_name() || (!rel.empty() && *rel.begin() == "..")) {
-        fprintf(stderr, "[conversion] %s: codes file '%s' must be a path inside the conversion folder\n", id.c_str(), codes_file.c_str());
-        return;
-    }
-    std::ifstream f(dir / rel, std::ios::binary);
-    if (!f) {
-        fprintf(stderr, "[conversion] %s: can't read codes file %s\n", id.c_str(), (dir / rel).string().c_str());
+    fetched = true;
+    std::string text = recomp::mods::active_conversion_codes();
+    if (text.empty()) {
         return;
     }
     constexpr size_t max_codes_bytes = 1024 * 1024;
-    std::string text(std::istreambuf_iterator<char>(f), {});
     if (text.size() > max_codes_bytes) {
-        fprintf(stderr, "[conversion] %s: codes file is over 1 MB; ignored\n", id.c_str());
+        fprintf(stderr, "[conversion] codes file is over 1 MB; ignored\n");
         return;
     }
     text.erase(std::remove(text.begin(), text.end(), '\0'), text.end()); // the mod reads a C string
     conversion_codes_text = std::move(text);
     conversion_has_codes = true;
-    fprintf(stderr, "[conversion] %s: codes file %s (%zu bytes) handed to the cheats engine\n", id.c_str(),
-        rel.string().c_str(), conversion_codes_text.size());
+    fprintf(stderr, "[conversion] codes (%zu bytes) handed to the cheats engine\n", conversion_codes_text.size());
 }
 
 // char* aki_conversion_codes(void): the codes text as a NUL-terminated string in the recomp heap (the mod frees it
 // with recomp_free), or NULL.
 static void mod_conversion_codes(uint8_t* rdram, recomp_context* ctx) {
+    fetch_conversion_codes();
     if (!conversion_has_codes) {
         ctx->r2 = 0;
         return;

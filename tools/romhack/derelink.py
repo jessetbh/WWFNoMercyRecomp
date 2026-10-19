@@ -1442,6 +1442,10 @@ def add_fall_through_entries(A, D, ports):
         end = max([a + z for a, z in inside] + ([nxt[0][0] + nxt[0][1]] if nxt else []), default=None)
         if end is None or end <= t:
             continue
+        # data before the next function: only the code that runs from there
+        if not all(mips.plausible(word(D, st.rom_of(v))) for v in range(t, end, 4)):
+            traced, _, _, _ = trace_extent(lambda v: word(D, st.rom_of(v)), t, t, end)
+            end = min(end, traced)
         A.extras.append(Extra('mid', None, t, end - t, section=sec))
         have.add((sec, t))
 

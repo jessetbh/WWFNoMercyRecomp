@@ -1,4 +1,8 @@
-"""De-relink a relinked No Mercy ROM hack back onto the stock layout, as a ROM-patch mod.
+"""De-relink an AKI-engine ROM hack back onto the stock layout, as a ROM-patch mod.
+
+Games are described by layout files (layouts/<game>.json: No Mercy, WrestleMania 2000); the
+one whose base_sha1 matches --base is used. Hacks that kept the stock layout (WM2000's) need
+little more than their changed functions ported and their extra code registered.
 
 Big No Mercy hacks (No Mercy Plus, ECW Born to be Wired) were relinked: every section moved in
 RAM, so almost every function's bytes differ, but mostly only in address immediates. Playing
@@ -21,7 +25,10 @@ addresses. This tool builds that: a ROM with the stock code/data layout, where
         --name "No Mercy Plus v2.1" --out nmplus21.nrm
 
 Self-contained (Python 3.8+, no third-party modules): it reads the stock layout from
-nomercy_layout.json next to this file, so it runs on a player's machine.
+layouts/ next to this file, so it runs on a player's machine. A layout holds addresses only
+(sections, function offsets/sizes, the overlay descriptor table, co-residency, stock code kept
+inside data areas) plus the base ROM's SHA1; `gen-layout` writes one from a port's
+RecompiledFuncs/recomp_overlays.inl and its ROM.
 """
 import argparse, bisect, collections, io, json, os, struct, sys, zipfile
 

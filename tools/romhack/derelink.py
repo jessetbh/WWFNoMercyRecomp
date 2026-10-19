@@ -338,7 +338,9 @@ class AddressMap:
         def add(r):
             if r is not None and r[0] not in out:
                 out.append(r[0])
-        add(self._find(self.priority, a))
+        moved = self._find(self.priority, a)
+        if moved:
+            return [moved[0]]       # code or buffers moved out of the stock layout: no alternative
         add(self._find(self.main, a))
         for lo, hi in self.identity:
             if lo <= a < hi:
@@ -654,7 +656,7 @@ class Unresolved(Exception):
     pass
 
 
-def rewrite(words, hack_pc, new_pc, candidates, stock_words=None, problems=None):
+def rewrite(words, hack_pc, new_pc, candidates, stock_words=None, problems=None, init=None):
     """Rewrite one function's absolute addresses from hack to stock space.
     words: the hack's words (at hack_pc); new_pc: where the result will live; candidates(a) ->
     plausible stock addresses for hack address a, best first (the last ones may be ROM-offset
@@ -707,8 +709,26 @@ def rewrite(words, hack_pc, new_pc, candidates, stock_words=None, problems=None)
             continue
         out[i] = (w & 0xFFFF0000) | (off & 0xFFFF)
     groups = collections.defaultdict(list)
-    for hi, lo, a in mips.hilo_refs(words):
-        groups[hi].append((lo, a))
+    external = []                               # %lo uses whose lui is in the code that jumped here
+    for hi, lo, a in mips.hilo_refs(words, init=init):
+        if hi is None:
+            external.append((lo, a))
+        else:
+            groups[hi].append((lo, a))
+    for lo, a in external:
+        cs = [c for c in cands(a, ram_only=False) if c >= 0x80000000] if a >= 0x80000000 else []
+        if not cs:
+            continue
+        hi_val = (a - mips.sx16(words[lo] & 0xFFFF)) & 0xFFFF0000     # the caller's lui stays as it is
+        new_lo = (cs[0] - hi_val) & 0xFFFFFFFF
+        if words[lo] >> 26 == 0x0D:
+            ok = new_lo < 0x10000
+        else:
+            ok = new_lo < 0x8000 or new_lo >= 0xFFFF8000
+        if ok:
+            out[lo] = (words[lo] & 0xFFFF0000) | (new_lo & 0xFFFF)
+        elif problems is not None:
+            problems.append((lo, 'external-hi', a))
 
     def halves(lo_word, na):
         if lo_word >> 26 == 0x0D:                    # ori: unsigned low half
@@ -1048,6 +1068,45 @@ def discover_extra_code(A):
         x = Extra(r[0], e, v, end - e, section=r[4])
         extras.append(x)
 
+    # which overlay's code enters each payload/cave entry (directly or through other entries):
+    # that overlay is the context for translating its addresses
+    region_ctx = collections.defaultdict(set)
+    def enter(e0, sec):
+        todo, seen = [e0], set()
+        while todo:
+            e = todo.pop()
+            if e in seen or e not in entries:
+                continue
+            seen.add(e)
+            region_ctx[e].add(sec)
+            r = entries[e][0]
+            end, jt, jalt, back = trace_extent(r[3], e, r[1], r[2])
+            todo += [t for t in jt | jalt if t in entries]
+    for name, units in A.units.items():
+        srom, stext = A.place[name][:2]
+        for s, h, z in units:
+            words = [word(A.hack, srom + (h - stext) + 4 * i) for i in range(z // 4)]
+            for i, kind, t in mips.jumps(words, h):
+                if t in entries and entries[t][0][0] in ('payload', 'cave'):
+                    enter(t, name)
+    for hw, owners_of in data_seed_owner.items():
+        for name, sw in owners_of:
+            if hw in entries:
+                enter(hw, name)
+    A.region_ctx = {e: next(iter(v)) for e, v in region_ctx.items() if len(v) == 1 and next(iter(v)) != 'main'}
+    # registers holding a lui value when a function jumps into a hook: the hack moved the
+    # displaced instructions there, so a %lo in the hook can pair with a lui left behind
+    inits = {}
+    for name, units in A.units.items():
+        srom, stext = A.place[name][:2]
+        for s, h, z in units:
+            words = [word(A.hack, srom + (h - stext) + 4 * i) for i in range(z // 4)]
+            for i, kind, t in mips.jumps(words, h):
+                if kind == 'j' and t in entries and entries[t][0][0] in ('payload', 'cave'):
+                    st = mips.hilo_state_at(words, i)
+                    inits[t] = st if t not in inits else {r: v for r, v in inits[t].items() if st.get(r) == v}
+    A.entry_init = {e: st for e, st in inits.items() if st}
+
     # mid-function return points: a hook entered by a `j` from function U returns into U
     owners = collections.defaultdict(set)          # hack text address -> {(section, s, h, z)}
     for name, units in A.units.items():
@@ -1157,13 +1216,28 @@ def payload_fixups(A, D, report):
         return
     get = lambda v: word(A.hack, p['rom'] + (v - p['ram']))
     spans = code_spans(A.extras, 'payload')
-    cand = lambda a: A.map.candidates(a, None)
     probs = []
+    ctx_of = getattr(A, 'region_ctx', {})
     for lo, hi in spans:
+        # the overlay whose code enters this stretch, when only one does
+        secs = {ctx_of[e] for e in ctx_of if lo <= e < hi}
+        ctx = secs.pop() if len(secs) == 1 else None
+        cand = lambda a, ctx=ctx: A.map.candidates(a, ctx)
         words = [get(v) for v in range(lo, hi, 4)]
         nw = rewrite(words, lo, lo, cand, None, probs)
         for i, w in enumerate(nw):
             put_word(D, p['rom'] + (lo - p['ram']) + 4 * i, w)
+    # hook entries: %lo uses paired with the jumping function's lui
+    for x in A.extras:
+        init = getattr(A, 'entry_init', {}).get(x.hack_vram) if x.kind == 'payload' else None
+        if not init:
+            continue
+        ctx = getattr(A, 'region_ctx', {}).get(x.hack_vram)
+        words = [get(v) for v in range(x.hack_vram, x.hack_vram + x.size, 4)]
+        ext = {lo for hi, lo, a in mips.hilo_refs(words, init=init) if hi is None}
+        nw = rewrite(words, x.hack_vram, x.hack_vram, lambda a, ctx=ctx: A.map.candidates(a, ctx), None, probs, init=init)
+        for i in ext:
+            put_word(D, p['rom'] + (x.hack_vram - p['ram']) + 4 * i, nw[i])
     ptrs = 0
     for v in range(p['ram'], p['ram'] + p['size'], 4):
         if any(a <= v < b for a, b in spans):
@@ -1338,9 +1412,9 @@ def assemble(A, report):
         D.extend(bytes(new_rom - len(D)))
         D.extend(area)
         D.extend(bytes((-len(D)) % 16))
-    patch_unsupported_instructions(D, [(f['vram'], f['rom'], f['size']) for f in functions] +
-                                   [(p.stock_vram, A.byname[p.section].rom_of(p.stock_vram), p.size)
-                                    for p in ports if p.status == 'changed'], report)
+    # COP0 Random reads are supported by the runtime (feat/fullconv); patch_unsupported_instructions()
+    # stays for runtimes without it (its mflo stand-in can spin in retry loops).
+    report['cop0_random_replaced'] = 0
     code_ranges = []
     if A.payload:
         code_ranges.append([A.payload['ram'], A.payload['ram'] + A.payload['size']])

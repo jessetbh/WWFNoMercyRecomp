@@ -80,12 +80,20 @@ def gpr_written(w):
     return r or None
 
 
-def hilo_refs(words, base_pc=0):
+def hilo_state_at(words, index):
+    """Registers holding a lui value when execution reaches words[index] (after its delay slot
+    for a jump): {reg: hi_value}. Used to pair a hook's %lo uses with its caller's lui."""
+    state = {}
+    hilo_refs(words[:index + 2], final_state=state)
+    return {r: v for r, (i, v) in state.items()}
+
+
+def hilo_refs(words, base_pc=0, init=None, final_state=None):
     """Pair each %lo use with its lui. words: list of ints. Returns a list of refs
     (hi_index, lo_index, address); one lui can feed several lo uses. Linear scan over the
     function; a register keeps its lui value through `addu rd, rs, rt` (IDO indexes arrays
     that way) and loses it when anything else writes it or a call clobbers it."""
-    state = {}           # reg -> (hi_index, hi_value)
+    state = {r: (None, v) for r, v in (init or {}).items()}   # reg -> (hi_index, hi_value); None = caller's
     out = []
     clobber_after = None  # a call's clobbers take effect after its delay slot
     for i, w in enumerate(words):
@@ -115,6 +123,8 @@ def hilo_refs(words, base_pc=0):
             state.pop(r, None)
         if op == 0 and (w & 0x3F) == 0x08 and rs == 31:       # jr ra: end of a path
             pass
+    if final_state is not None:
+        final_state.update(state)
     return out
 
 

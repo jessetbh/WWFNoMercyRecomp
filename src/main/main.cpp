@@ -33,6 +33,7 @@
 #include "recompinput/input_events.h"
 #include "recompinput/input_state.h"
 #include "recompinput/players.h"
+#include "librecomp/conversion.hpp"
 #include "librecomp/game.hpp"
 #include "librecomp/rsp.hpp"
 #include "librecomp/helpers.hpp"
@@ -976,6 +977,8 @@ int main(int argc, char** argv) {
     std::filesystem::create_directories(app_folder, app_folder_ec);
     recomp::register_config_path(app_folder);
     install_bundled_mods(app_folder);
+    // [wcw fullconv] Codes in a conversion (AKI_CONVERSION) only run when written for this ROM revision.
+    recomp::mods::set_port_rom_revision("nomercy-rev1");
     register_texture_packs(app_folder, dump_textures);
     register_mod_input_exports();
     wcw::register_wcw_overlays();

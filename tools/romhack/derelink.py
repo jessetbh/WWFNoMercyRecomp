@@ -1461,6 +1461,151 @@ def add_refresh_stubs(A, D, area, report, lookahead=12):
     report['refresh_hooks'] = [(e, sorted(ins), sorted(outs)) for e, _, ins, outs in hooks]
 
 
+def _jumpish(w):
+    return mips.branch_target(w, 0) is not None or w >> 26 in (2, 3) or \
+        (w >> 26 == 0 and (w & 0x3F) in (0x08, 0x09))
+
+
+def stub_over(A, D, area, P, first, words_at, targets):
+    """Replace payload instruction P (and the one after it, which would sit in the j's delay slot)
+    by a jump to a new-code-area stub: `first` (instructions standing in for P), the instruction
+    after P, then back to P + 8 (registered as a payload entry). None if P can't be moved."""
+    p = A.payload
+    w_prev, w_next = words_at(P - 4), words_at(P + 4)
+    if _jumpish(w_prev) or _jumpish(w_next) or (P + 4) in targets:
+        return None
+    owner = next((x for x in A.extras if x.kind == 'payload' and x.vram and x.vram <= P < x.vram + x.size), None)
+    if owner is None or P + 8 >= owner.vram + owner.size:
+        return None
+    off = (len(area) + 15) & ~15
+    area.extend(bytes(off - len(area)))
+    sv = NEW_CODE_VRAM + off
+    code = list(first) + [w_next, mips.with_jump_target(0x08000000, P + 8), 0]
+    for c in code:
+        area.extend(c.to_bytes(4, 'big'))
+    rom = p['rom'] + (P - p['ram'])
+    put_word(D, rom, mips.with_jump_target(0x08000000, sv))
+    put_word(D, rom + 4, 0)
+    A.extras.append(Extra('refresh', None, sv, 4 * len(code)))
+    A.extras.append(Extra('payload', P + 8, P + 8, owner.vram + owner.size - (P + 8)))
+    return sv
+
+
+def ram_variable(A, area, new_rom, init_word):
+    """A word of free Expansion RAM (after the payload and the moved save buffers) that the runtime
+    preloads with init_word (stored in the new-code area). Returns its address."""
+    if not hasattr(A, 'ram_vars'):
+        end = A.payload['ram'] + A.payload['size'] if A.payload else 0x80400000
+        if getattr(A, 'save_area', None):
+            lo, hi, base = A.save_area
+            end = max(end, base + (hi - lo))
+        A.ram_vars = [((end + 0xFFF) & ~0xFFF) + 0x1000, []]
+    off = (len(area) + 3) & ~3
+    area.extend(bytes(off - len(area)))
+    area.extend(init_word.to_bytes(4, 'big'))
+    v = A.ram_vars[0] + 4 * len(A.ram_vars[1])
+    A.ram_vars[1].append(dict(rom=new_rom + off, ram=v, size=4))
+    return v
+
+
+def fix_get_pc(A, D, area, report, new_rom):
+    """Hack code that takes its own address (`jal` to a bare `jr ra`, then `addiu rX, ra, imm`) gets
+    nothing natively (the recompiler doesn't keep ra): compute the address absolutely. When the
+    address is then used to patch the immediate of an `ori/addiu rY, zero, imm` in payload code
+    (a variable kept in an instruction), that instruction reads the halfword from RAM instead."""
+    p = A.payload
+    if not p:
+        return
+    pw = lambda v: word(D, p['rom'] + (v - p['ram']))
+    helpers = set()
+    for x in A.extras:
+        if x.kind == 'payload' and x.vram:
+            ws = [pw(x.vram + 4 * i) for i in range(min(x.size // 4, 4))]
+            k = next((i for i, w in enumerate(ws) if w), None)
+            if k is not None and ws[k] == 0x03E00008:
+                helpers.add(x.vram)
+    if not helpers:
+        return
+    done = []
+    for lo, hi in code_spans(A.extras, 'payload'):
+        nw = [pw(v) for v in range(lo, hi, 4)]
+        targets = {mips.branch_target(w, lo + 4 * i) for i, w in enumerate(nw)} - {None}
+        for i, w in enumerate(nw):
+            J = lo + 4 * i
+            if w >> 26 != 3 or mips.jump_target(w, J) not in helpers or i + 1 >= len(nw) or nw[i + 1]:
+                continue
+            for k in range(i + 2, min(i + 9, len(nw))):
+                x = nw[k]
+                if x >> 26 == 0x09 and (x >> 21) & 31 == 31 and (x >> 16) & 31 not in (0, 31):
+                    rt = (x >> 16) & 31
+                    addr = (J + 8 + mips.sx16(x & 0xFFFF)) & 0xFFFFFFFF
+                    put_word(D, p['rom'] + (J + 4 - p['ram']), (0x0F << 26) | (rt << 16) | (((addr + 0x8000) >> 16) & 0xFFFF))
+                    put_word(D, p['rom'] + (lo + 4 * k - p['ram']), (0x09 << 26) | (rt << 21) | (rt << 16) | (addr & 0xFFFF))
+                    done.append((J, addr))
+                    # a halfword store through it into an instruction's immediate
+                    for m in range(k + 1, min(k + 5, len(nw))):
+                        y = nw[m]
+                        if y >> 26 == 0x29 and (y >> 21) & 31 == rt:
+                            tgt = (addr + mips.sx16(y & 0xFFFF)) & 0xFFFFFFFF
+                            I = tgt & ~3
+                            iw = pw(I) if p['ram'] <= I < p['ram'] + p['size'] else None
+                            if iw is not None and tgt == I + 2 and iw >> 26 in (0x0D, 0x09) and (iw >> 21) & 31 == 0:
+                                # the instruction's word lives in a RAM variable instead (its RAM copy
+                                # becomes the jump to the stub); the store and the read go there
+                                var = ram_variable(A, area, new_rom, iw)
+                                vt = var + 2
+                                ry = (iw >> 16) & 31
+                                load = 0x25 if iw >> 26 == 0x0D else 0x21      # ori: lhu, addiu: lh
+                                first = [(0x0F << 26) | (ry << 16) | (((vt + 0x8000) >> 16) & 0xFFFF),
+                                         (load << 26) | (ry << 21) | (ry << 16) | (vt & 0xFFFF)]
+                                if stub_over(A, D, area, I, first, pw, targets) is not None:
+                                    base_addr = (vt - mips.sx16(y & 0xFFFF)) & 0xFFFFFFFF
+                                    put_word(D, p['rom'] + (J + 4 - p['ram']), (0x0F << 26) | (rt << 16) | (((base_addr + 0x8000) >> 16) & 0xFFFF))
+                                    put_word(D, p['rom'] + (lo + 4 * k - p['ram']), (0x09 << 26) | (rt << 21) | (rt << 16) | (base_addr & 0xFFFF))
+                                    done.append((I, var))
+                                else:
+                                    report.setdefault('get_pc_left', []).append(I)
+                    break
+    report['get_pc_fixed'] = done
+
+
+def fix_unreachable_lo(A, D, area, report):
+    """One lui can feed %lo uses whose translations need different %hi values (the hack's
+    variables straddle a 64 KB boundary after the shift). In payload code, a load into a GPR or an
+    addiu the chosen %hi can't reach goes through a stub: `lui rt, %hi(A)` + the instruction based
+    on rt, then the instruction after it (moved out of the j's delay slot), then back."""
+    p = A.payload
+    if not p:
+        return
+    fixed = []
+    ctx_of = getattr(A, 'region_ctx', {})
+    for lo, hi in code_spans(A.extras, 'payload'):
+        secs = {ctx_of[e] for e in ctx_of if lo <= e < hi}
+        ctx = secs.pop() if len(secs) == 1 else None
+        rom = p['rom'] + (lo - p['ram'])
+        hw = [word(A.hack, rom + i) for i in range(0, hi - lo, 4)]
+        nw = [word(D, rom + i) for i in range(0, hi - lo, 4)]
+        got = {l: a for h, l, a in mips.hilo_refs(nw)}
+        targets = {mips.branch_target(w, lo + 4 * i) for i, w in enumerate(nw)} - {None}
+        for h, l, a in mips.hilo_refs(hw):
+            cs = A.map.candidates(a, ctx)
+            if len(cs) != 1 or got.get(l) == cs[0] or cs[0] == a and got.get(l) == a:
+                continue
+            want, w = cs[0], nw[l]
+            op, rt = w >> 26, (w >> 16) & 31
+            if not ((op in mips.LOAD_GPR or op == 0x09) and rt) or l == 0 or l + 2 > len(nw):
+                continue
+            P = lo + 4 * l
+            first = [(0x0F << 26) | (rt << 16) | (((want + 0x8000) >> 16) & 0xFFFF),
+                     (w & 0xFC000000) | (rt << 21) | (rt << 16) | (want & 0xFFFF)]
+            pw = lambda v: word(D, p['rom'] + (v - p['ram']))
+            if stub_over(A, D, area, P, first, pw, targets) is None:
+                report.setdefault('unreachable_lo_left', []).append(P)
+                continue
+            fixed.append((P, a, want))
+    report['unreachable_lo_fixed'] = fixed
+
+
 def add_entry_logs(A, D, area, report):
     """(debugging) For each 'section:vram' in A.experiment_log_entries: the function's first word
     becomes a jump to a stub that records (a0, a1) of calls with a0 >= 0x10000 in a 256-entry ring at 0x807FF108 (write offset
@@ -1572,6 +1717,8 @@ def assemble(A, report):
                         put_word(area, off + 4 * i, c)
     report['cave_problems'] = cave_probs
     add_refresh_stubs(A, D, area, report)
+    fix_unreachable_lo(A, D, area, report)
+    fix_get_pc(A, D, area, report, new_rom)
     add_entry_logs(A, D, area, report)
     for x in A.extras:
         if x.kind == 'payload' and x.vram:
@@ -1664,6 +1811,7 @@ def assemble(A, report):
     if A.payload:
         p = A.payload
         manifest['preload'] = [dict(rom=p['rom'], ram=p['ram'], size=p['size'])]
+        manifest['preload'] += getattr(A, 'ram_vars', [0, []])[1]
         manifest['zero'] = [dict(ram=p['zero_lo'], size=p['zero_hi'] - p['zero_lo'])]
     if getattr(A, 'save_area', None):
         lo, hi, base = A.save_area
@@ -1684,6 +1832,12 @@ def summarize(A, report):
     k = collections.Counter(x.kind for x in A.extras)
     lines.append('extra functions: %d payload, %d cave, %d reshaped, %d mid-function return points' % (k['payload'], k['cave'], k['reshaped'], k['mid']))
     lines.append('data words changed: %d; payload pointers translated: %d' % (report['data_words_changed'], report.get('payload_pointers_translated', 0)))
+    if report.get('unreachable_lo_fixed') or report.get('unreachable_lo_left'):
+        lines.append('%%lo uses no %%hi reaches: %d moved to stubs, %d left' % (
+            len(report.get('unreachable_lo_fixed', [])), len(report.get('unreachable_lo_left', []))))
+    if report.get('get_pc_fixed') or report.get('get_pc_left'):
+        lines.append('own-address (get-PC) uses fixed: %d, left: %d' % (
+            len(report.get('get_pc_fixed', [])), len(report.get('get_pc_left', []))))
     if report.get('refresh_hooks'):
         lines.append('hook-derived values refreshed: %d hook(s), %d call site(s), %d store(s) with no call after' % (
             len(report['refresh_hooks']), len(report.get('refresh_sites', [])), len(report.get('refresh_unhandled', []))))

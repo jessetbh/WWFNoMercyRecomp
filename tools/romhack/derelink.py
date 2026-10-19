@@ -587,10 +587,16 @@ class Analysis:
                 rs.append((lo, hi, d, 'data'))
         # above the overlay slots: the heap arena (its header is referenced by address)
         top = max(p[4] for p in self.place.values())
+        stock_top = max(s.end for s in self.secs)
         allp = [p for ps in pairs.values() for p in ps]
         for lo, hi, d in runs_from_pairs(allp, top, 0x80400000):
             if any(top <= h < 0x80400000 for _, h in allp):
-                amap.main.append((lo, hi, d, 'heap'))
+                if (lo + d) & 0xFFFFFFFF < stock_top:
+                    # a hack that moved its heap elsewhere reuses the old arena as plain memory and
+                    # repoints variables there; no heap shift, the area is free in the stock layout too
+                    amap.main.append((lo, hi, 0, 'heap'))
+                else:
+                    amap.main.append((lo, hi, d, 'heap'))
         for name, (hrom, htext, htext_end, hdata, hend) in self.place.items():
             st = self.byname[name]
             hdata_rom_end = hrom + (self.hsecs[name].bss - htext) if self.hsecs.get(name) else hrom + (st.bss - st.text) + 0x100
@@ -833,6 +839,15 @@ def port_code(A):
             else:
                 hw = [word(A.hack, A.hack_rom_of(name, h) + 4 * i) for i in range(n)]
                 nw = rewrite(hw, h, s, tr, sw, probs)
+                # %lo uses after a hook's return point that pair with the hook's lui
+                for t, init in getattr(A, 'return_init', {}).items():
+                    if h < t < h + z:
+                        k = (t - h) // 4
+                        ext = {lo for hi, lo, a in mips.hilo_refs(hw[k:], init=init) if hi is None}
+                        if ext:
+                            nw2 = rewrite(hw[k:], t, s + 4 * k, tr, sw[k:], probs, init=init)
+                            for i in ext:
+                                nw[k + i] = nw2[i]
             status = 'moved' if nw == sw else 'changed'
             ports.append(Port(name, s, z, nw, status, probs))
     return ports, A.resized
@@ -1105,6 +1120,16 @@ def discover_extra_code(A):
                     st = mips.hilo_state_at(words, i)
                     inits[t] = st if t not in inits else {r: v for r, v in inits[t].items() if st.get(r) == v}
     A.entry_init = {e: st for e, st in inits.items() if st}
+    # ...and the other way round: registers a hook leaves holding a lui value when it jumps back
+    # into the function (the hack moved a lui there; the %lo stayed behind)
+    rinits = {}
+    for e, (r, end, back) in entries.items():
+        words = [r[3](v) for v in range(e, end, 4)]
+        for i, kind, t in mips.jumps(words, e):
+            if kind == 'j' and not region_of(t, r[4]):
+                st = mips.hilo_state_at(words, i)
+                rinits[t] = st if t not in rinits else {k: v for k, v in rinits[t].items() if st.get(k) == v}
+    A.return_init = {t: st for t, st in rinits.items() if st}
 
     # mid-function return points: a hook entered by a `j` from function U returns into U
     owners = collections.defaultdict(set)          # hack text address -> {(section, s, h, z)}

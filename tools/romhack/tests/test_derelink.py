@@ -64,6 +64,14 @@ class HiLoTests(unittest.TestCase):
         h, l = hi_lo(0x80057188)
         self.assertEqual(mips.hilo_refs([lui(A0, h), addiu(A0, 0, 5), addiu(A1, A0, l)]), [])
 
+    def test_increment_after_base_use_is_not_a_lo(self):
+        # lui v1, 0x8017; loop: sh a1, 0(v1); addiu v1, v1, 2 (a fill loop, not %hi/%lo)
+        sh = (0x29 << 26) | (V1 << 21) | (A1 << 16)
+        refs = mips.hilo_refs([lui(V1, 0x8017), sh, addiu(V1, V1, 2)])
+        self.assertEqual([(lo, a) for hi, lo, a in refs], [(1, 0x80170000)])
+        # ...while the classic in-place pair still is one
+        self.assertEqual([a for hi, lo, a in mips.hilo_refs([lui(V1, 0x8017), addiu(V1, V1, 0x10)])], [0x80170010])
+
     def test_ori_is_unsigned(self):
         refs = mips.hilo_refs([lui(T0, 0x8040), ori(T0, T0, 0x9000)])
         self.assertEqual(refs[0][2], 0x80409000)
@@ -124,6 +132,14 @@ class RewriteTests(unittest.TestCase):
         hack = [jal(0x8012F308), NOP]
         stock = [jal(0x8012F308 - 0x1530), NOP]
         self.assertEqual(d.rewrite(hack, 0x80001000, 0x80001000, cands, stock, []), stock)
+
+    def test_lo_after_return_point_pairs_with_the_hooks_lui(self):
+        # the hook left at = 0x8015xxxx (+index); back in the function: lw v0, 0x34FC(at); jr v0
+        words = [lw(V0, 0x34FC, AT), jr(V0), NOP]
+        init = {AT: 0x80150000}
+        cand = lambda a: [a - 0x1520] if 0x80150000 <= a < 0x80160000 else []
+        out = d.rewrite(words, 0x800DC478, 0x800DAF48, cand, [lw(V0, 0x1FDC, AT), jr(V0), NOP], [], init=init)
+        self.assertEqual(out[0], lw(V0, 0x1FDC, AT))
 
     def test_split_hi_takes_common_shift(self):
         # one lui feeds two uses whose first choices would need different %hi halves; a shift

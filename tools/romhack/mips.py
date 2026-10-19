@@ -95,6 +95,7 @@ def hilo_refs(words, base_pc=0, init=None, final_state=None):
     that way) and loses it when anything else writes it or a call clobbers it."""
     state = {r: (None, v) for r, v in (init or {}).items()}   # reg -> (hi_index, hi_value); None = caller's
     out = []
+    based = set()         # lui indices already used as a load/store base
     clobber_after = None  # a call's clobbers take effect after its delay slot
     for i, w in enumerate(words):
         if clobber_after is not None and i > clobber_after:
@@ -110,7 +111,12 @@ def hilo_refs(words, base_pc=0, init=None, final_state=None):
         if (op in LO_OPS or op == 0x0D) and rs in state:      # 0x0D ori: unsigned %lo
             hi_i, hi_v = state[rs]
             lo = (w & 0xFFFF) if op == 0x0D else sx16(w & 0xFFFF)
-            out.append((hi_i, i, (hi_v + lo) & 0xFFFFFFFF))
+            if op == 0x09 and rt == rs and (rs, hi_i) in based:
+                pass        # addiu rX, rX after rX was a base: a pointer increment, not a %lo
+            else:
+                out.append((hi_i, i, (hi_v + lo) & 0xFFFFFFFF))
+                if op != 0x09 and op != 0x0D:
+                    based.add((rs, hi_i))
         if op == 0 and (w & 0x3F) in (0x21, 0x2D) and rd:     # addu / daddu
             a, b = state.get(rs), state.get(rt)
             if (a is None) != (b is None):

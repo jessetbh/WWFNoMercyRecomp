@@ -1442,7 +1442,7 @@ def add_entry_logs(A, D, area, report):
     at 0x807FF100, above No Mercy Plus's Expansion-RAM heap), runs the second word and jumps back."""
     for spec in getattr(A, 'experiment_log_entries', ()):
         if spec.startswith('jsite:'):
-            # the j/jal at sec:vram goes through a stub that records (v0, s0, s1) in the 0x804B0000
+            # the j/jal at sec:vram goes through a stub that records (site vram, s0, s1) in the 0x804B0000
             # ring (12-byte entries) and then jumps to the original target
             _, sec, v = spec.split(':')
             v = int(v, 16)
@@ -1453,7 +1453,8 @@ def add_entry_logs(A, D, area, report):
             area.extend(bytes(off - len(area)))
             sv = NEW_CODE_VRAM + off
             code = [0x3C18804B, 0x8F190000, 0x2739000C, 0x3339FFFF, 0xAF190000, 0x0338C821,
-                    0xAF220008, 0xAF30000C, 0xAF310010, mips.with_jump_target(0x08000000, target), 0]
+                    0x3C010000 | (v >> 16), 0x34210000 | (v & 0xFFFF), 0xAF210008,   # site vram (not v0)
+                    0xAF30000C, 0xAF310010, mips.with_jump_target(0x08000000, target), 0]
             for c in code:
                 area.extend(c.to_bytes(4, 'big'))
             put_word(D, r, mips.with_jump_target(w, sv))

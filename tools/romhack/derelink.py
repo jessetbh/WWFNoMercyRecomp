@@ -1776,6 +1776,56 @@ def padding_code(A, D, sec, t, funcs):
     return end - t
 
 
+def kseg1_fixups(A, D, area, ports, report):
+    """Hack code that copies with direct cartridge reads at run time (Revenge Starrcade 2.0 at 0x8001C6D0: lw from
+    0xB2300000, sw to 0xA0420000): a `lui` of an uncached RAM base (0xA000-0xA07F) becomes the cached one (same memory;
+    the port has no uncached view), and one of a cartridge base (0xB000-0xBFFF) asks the runtime to map the ROM there
+    (report['direct_rom_reads']). Only words the hack changed (ported code, in-place entries, the new-code area)."""
+    rom_reads = 0
+    fixed = 0
+    def fix(get, put, lo, hi):
+        nonlocal rom_reads, fixed
+        for v in range(lo, hi, 4):
+            w = get(v)
+            if w >> 26 != 0x0F:
+                continue
+            imm = w & 0xFFFF
+            if 0xA000 <= imm <= 0xA07F:
+                put(v, (w & 0xFFFF0000) | (imm - 0x2000))
+                fixed += 1
+            elif 0xB000 <= imm <= 0xBFFF:
+                rom_reads += 1
+    for p in ports:
+        if p.status != 'changed':
+            continue
+        st = A.byname[p.section]
+        get = lambda v, st=st: word(D, st.rom_of(v))
+        put = lambda v, w, st=st: put_word(D, st.rom_of(v), w) if word(A.base, st.rom_of(v)) != w else None
+        fix(lambda v, st=st: word(D, st.rom_of(v)) if word(D, st.rom_of(v)) != word(A.base, st.rom_of(v)) else 0, put,
+            p.stock_vram, p.stock_vram + p.size)
+    for x in A.extras:
+        if x.kind == 'mid' and x.vram and x.size and x.section in A.byname:
+            st = A.byname[x.section]
+            fix(lambda v, st=st: word(D, st.rom_of(v)) if word(D, st.rom_of(v)) != word(A.base, st.rom_of(v)) else 0,
+                lambda v, w, st=st: put_word(D, st.rom_of(v), w), x.vram, x.vram + x.size)
+    fix(lambda v: word(area, v - NEW_CODE_VRAM), lambda v, w: put_word(area, v - NEW_CODE_VRAM, w),
+        NEW_CODE_VRAM, NEW_CODE_VRAM + len(area) // 4 * 4)
+    report['kseg1_fixups'] = fixed
+    report['direct_rom_reads'] = rom_reads
+
+
+def os_code(A, sec, vram, size):
+    """A stock function holding COP0 moves or cache instructions: libultra's exception / interrupt / TLB code, which
+    the ports stub and the runtime implements natively. Never an entry for live code (Revenge Starrcade 2.0: an entry
+    at 0x8002CA60, inside the stubbed func_8002CA00, ran the exception handler's code and broke the host stack)."""
+    st = A.byname[sec]
+    for i in range(size // 4):
+        w = word(A.base, st.rom_of(vram + 4 * i))
+        if (w >> 26 == 0x10 and (w >> 21) & 31 in (0, 4, 0x10)) or w >> 26 == 0x2F:
+            return True
+    return False
+
+
 def add_branch_out_entries(A, D, ports, rounds=4):
     """Branches and `j` tail calls that leave a function (IDO shares tails between functions)
     become lookup tail calls in the live recompiler, so their targets must be registered: add each
@@ -1832,6 +1882,8 @@ def add_branch_out_entries(A, D, ports, rounds=4):
                 if not inside or any(st.text + o == t for o, z in funcs[sec]):
                     continue        # a real function start is registered already
                 fs, fz = min(inside, key=lambda f: f[1])
+                if os_code(A, sec, fs, fz):
+                    continue        # libultra's exception/OS code: ports stub it, the runtime handles it natively
                 x = Extra('mid', None, t, fs + fz - t, section=sec)
                 A.extras.append(x)
                 have.add((sec, t))
@@ -2209,6 +2261,7 @@ def assemble(A, report):
     add_switch_case_entries(A, D)
     add_fall_through_entries(A, D, ports)
     add_branch_out_entries(A, D, ports)
+    kseg1_fixups(A, D, area, ports, report)
     functions = []
     copies = 0
     for x in A.extras:
@@ -2310,6 +2363,8 @@ def assemble(A, report):
     data_funcs += unchanged_code_functions(A, D, ports, report)
     if data_funcs:
         manifest['data_functions'] = sorted(set(data_funcs))
+    if report.get('direct_rom_reads'):
+        manifest['direct_rom_reads'] = True
     if A.payload:
         p = A.payload
         manifest['preload'] = [dict(rom=p['rom'], ram=p['ram'], size=p['size'])]

@@ -873,6 +873,51 @@ def keep_stock_zones(A, name, gap=0x400):
     return [tuple(z) for z in out]
 
 
+def unchanged_code_functions(A, D, ports, report):
+    """ROM offsets of stock functions whose bytes changed only in padding: stock nops no entry reaches, where the
+    hack put data (Revenge Starrcade's tables after a function's code; at least one word must not be an
+    instruction, a lone instruction there may be a hack's code tweak). Their code is unchanged, so the runtime
+    keeps the static function instead of recompiling the data with it. Other changed functions outside the
+    ports are listed in report['unported_code_changes']."""
+    ported = {(p.section, p.stock_vram) for p in ports if p.status == 'changed'}
+    entries = collections.defaultdict(list)
+    for x in A.extras:
+        if x.kind == 'mid' and x.vram:
+            entries[x.section].append(x.vram)
+    out = []
+    for name, st in A.byname.items():
+        for o, z in section_funcs(A, name):
+            if not z:
+                continue
+            v, r = st.text + o, st.rom_of(st.text + o)
+            if r + z > len(A.base) or D[r:r + z] == A.base[r:r + z]:
+                continue
+            words = [word(D, r + 4 * i) for i in range(z // 4)]
+            changed = [i for i in range(z // 4) if words[i] != word(A.base, r + 4 * i)]
+            ins = [e for e in entries[name] if v < e < v + z]
+            # switch cases are only entered through their jump table: read the cases as entries too
+            for _, t in jump_tables(words):
+                tsec = next((s for s in A.byname.values() if s.text <= t < s.bss and (s is st or s.slot is None)), None)
+                if tsec is None:
+                    continue
+                tr_ = tsec.rom_of(t)
+                for k in range(256):
+                    c = word(D, tr_ + 4 * k) if tr_ + 4 * k + 4 <= len(D) else 0
+                    if not v <= c < v + z:
+                        break
+                    ins.append(c)
+            seen = reach(lambda pc: words[(pc - v) // 4], [v] + ins, v, v + z)
+            # only padding: every changed word was a stock nop that nothing reaches (hack code elsewhere can jump
+            # into words the trace doesn't see, so a changed real instruction always counts as a code change)
+            # and at least one of them isn't an instruction, so it's data for certain
+            if all(v + 4 * i not in seen and word(A.base, r + 4 * i) == 0 for i in changed) and \
+                    not all(mips.plausible(words[i]) for i in changed):
+                out.append(r)
+            elif (name, v) not in ported:
+                report.setdefault('unported_code_changes', []).append((name, v))
+    return out
+
+
 def port_data_chunk(A, name, s, h, z, hw, sw, tr):
     """Ports for a changed chunk whose entry is data: each stock function inside is data (copied
     as it is) unless the code traced from its own start decodes, then it's rewritten as code. The
@@ -2048,6 +2093,7 @@ def assemble(A, report):
             st = A.byname[p.section]
             data_funcs += [st.rom_of(st.text + o) for o, z in section_funcs(A, p.section)
                            if z and p.stock_vram <= st.text + o and st.text + o + z <= p.stock_vram + p.size]
+    data_funcs += unchanged_code_functions(A, D, ports, report)
     if data_funcs:
         manifest['data_functions'] = sorted(set(data_funcs))
     if A.payload:

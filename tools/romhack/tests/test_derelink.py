@@ -377,6 +377,24 @@ class DataInCodeTests(unittest.TestCase):
         self.assertEqual([(x.status, x.problems, x.words[3]) for x in p], [('changed', [], jal(0x80300000))])
 
 
+class PaddingDataTests(unittest.TestCase):
+    STOCK = {0x80000400: addiu(V0, 0, 1), 0x80000404: jr(RA), 0x80000408: NOP}   # then nop padding to 0x20
+
+    def kept(self, hack):
+        A, D = fake_main([(0x80000400, 0x20)], self.STOCK, {**self.STOCK, **hack})
+        return d.unchanged_code_functions(A, D, [], {})
+
+    def test_data_in_padding_keeps_the_static_function(self):
+        # Revenge Starrcade: a table after the function's return, in its nop padding
+        self.assertEqual(self.kept({0x80000410: 0x80000410, 0x80000414: 1, 0x80000418: HULK}), [0x1000])
+
+    def test_a_lone_instruction_in_padding_is_a_code_change(self):
+        self.assertEqual(self.kept({0x80000414: addu(V1, V0, 0)}), [])
+
+    def test_a_changed_instruction_is_a_code_change(self):
+        self.assertEqual(self.kept({0x80000400: addiu(V0, 0, 2), 0x80000418: HULK}), [])
+
+
 class EntryPassTests(unittest.TestCase):
     def test_tail_call_into_the_middle_of_a_function_gets_an_entry(self):
         hack = {0x80000400: j(0x80000418), 0x80000404: NOP, 0x80000410: addiu(V0, 0, 1),

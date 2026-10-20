@@ -542,6 +542,7 @@ class Analysis:
         # units: matched functions plus same-size chunks, (stock vram, hack vram, size)
         self.units = {}
         self.resized = []
+        self.moved_resized = []  # (section, stock lo, stock hi, hack lo, hack hi): resized overlay code moved whole
         self.shrunk = {}         # (section, stock vram) -> hack size, for functions the hack shortened
         self.reshaped = []       # (section, stock lo, stock hi, hack lo, hack hi) rebuilt by the hack
         for name, m in self.matches.items():
@@ -568,6 +569,12 @@ class Analysis:
                         # (main's resized code is the Rev 0 flash-save code, which stays Rev 1)
                         u.append((slo, hlo, shi - slo))
                         self.shrunk[(name, slo)] = hhi - hlo
+                    elif name != 'main' and inside and getattr(self, 'move_resized', True):
+                        # an overlay stretch with stock functions whose size the hack changed (a hack on another revision: 9
+                        # Underground is World Tour rev 1 code on the rev 0 port): its version moves whole to the
+                        # new-code area, and the stock functions in it jump there (resized_redirects)
+                        self.reshaped.append((name, slo, shi, hlo, hhi))
+                        self.moved_resized.append((name, slo, shi, hlo, hhi))
                     else:
                         self.resized.append((name, slo, shi, hlo, hhi))
             self.units[name] = sorted(u)
@@ -1170,6 +1177,49 @@ class Extra:
         self.problems = []
 
 
+def resized_pairs(A):
+    """(section, stock function start, hack function start) for the stock functions inside each moved resized stretch:
+    hack starts are the stretch start, calls into it (from its own section and main) and a frame setup or a
+    `jr ra` stub right after a `jr ra` and its slot. Equal counts pair in order; otherwise the stretch starts pair (both are function
+    boundaries) and the rest pair where the frame sizes agree (difflib), positionally inside equal-length runs."""
+    import difflib
+    out = []
+    for name, slo, shi, hlo, hhi in getattr(A, 'moved_resized', []):
+        st = A.byname[name]
+        hw = lambda v, name=name: word(A.hack, A.hack_rom_of(name, v))
+        starts = {hlo}
+        for src in (name, 'main'):
+            hrom, htext, htext_end = A.place[src][:3]
+            for i in range((htext_end - htext) // 4):
+                w = word(A.hack, hrom + 4 * i)
+                if w >> 26 == 3:
+                    t = mips.jump_target(w, htext + 4 * i)
+                    if hlo <= t < hhi:
+                        starts.add(t)
+        for v in range(hlo, hhi - 8, 4):
+            # a function after a return: a frame setup, or a stub the hack left (`jr ra; nop`)
+            if hw(v) == 0x03E00008 and (((hw(v + 8) >> 16) == 0x27BD and hw(v + 8) & 0x8000) or hw(v + 8) == 0x03E00008):
+                starts.add(v + 8)
+        hs = sorted(starts)
+        ss = sorted(st.text + o for o, z in st.funcs if slo <= st.text + o < shi)
+        frame = lambda w: (w & 0xFFFF) if w >> 16 == 0x27BD else 0
+        hsig = [frame(hw(v)) for v in hs]
+        ssig = [frame(word(A.base, st.rom_of(v))) for v in ss]
+        if not ss:
+            continue
+        if len(ss) == len(hs):
+            out.extend((name, a, b) for a, b in zip(ss, hs))
+            continue
+        # the stretch starts on a function boundary on both sides; the rest by frame sizes
+        out.append((name, ss[0], hlo))
+        hs, hsig = [v for v in hs if v != hlo], [f for v, f in zip(hs, hsig) if v != hlo]
+        ss, ssig = ss[1:], ssig[1:]
+        for tag, i1, i2, j1, j2 in difflib.SequenceMatcher(None, ssig, hsig, autojunk=False).get_opcodes():
+            if tag == 'equal' or (tag == 'replace' and i2 - i1 == j2 - j1):
+                out.extend((name, ss[i], hs[j]) for i, j in zip(range(i1, i2), range(j1, j2)))
+    return out
+
+
 def discover_extra_code(A):
     """Find the hack's code outside the stock text: payload functions, main-data caves, chunks
     the hack reshaped (moved whole to the new-code area) and mid-function return points.
@@ -1231,6 +1281,9 @@ def discover_extra_code(A):
                     if any(a <= sw < b for a, b in stock_text) and                             mips.plausible_entry([r[3](hw + 4 * k) for k in range(6)]):
                         work.append((hw, name))
                         data_seed_owner.setdefault(hw, set()).add((name, sw))
+    # moved resized stretches: the hack's function starts paired with stock ones get entries (resized_redirects)
+    A.resized_pairs = resized_pairs(A)
+    work += [(h, name) for name, s_, h in A.resized_pairs]
     entries = {}                                # address -> (region, end, back)
     text_jumps = set()
 
@@ -1479,6 +1532,21 @@ def translate_data(A, D, report):
                 changed += 1
                 report.setdefault('data_changes', []).append((name, x, sw, ram[0] if ram else hw))
     report['data_words_changed'] = changed
+
+
+def resized_redirects(A, D, report):
+    """Each stock function inside a moved resized stretch becomes `j <its hack version in the new-code area>`: the
+    runtime regenerates it (its bytes changed), so stock code still calling it directly runs the hack's version."""
+    n = 0
+    for name, s_, h in getattr(A, 'resized_pairs', []):
+        nv = next((nv + (h - lo) for k, sec, lo, hi, nv in A.new_blocks if k == 'reshaped' and sec == name and lo <= h < hi), None)
+        if nv is None:
+            continue
+        r = A.byname[name].rom_of(s_)
+        put_word(D, r, (2 << 26) | ((nv >> 2) & 0x3FFFFFF))
+        put_word(D, r + 4, 0)
+        n += 1
+    report['resized_redirects'] = n
 
 
 def keep_caves_in_place(A, D, report):
@@ -2094,6 +2162,7 @@ def assemble(A, report):
     report['resized'] = resized
     translate_data(A, D, report)
     keep_caves_in_place(A, D, report)
+    resized_redirects(A, D, report)
     payload_fixups(A, D, report)
     # new-code area: caves and reshaped chunks, copied whole, their code rewritten in place
     new_rom = (len(D) + 0xFFFF) & ~0xFFFF
@@ -2263,6 +2332,9 @@ def summarize(A, report):
     lines.append('in-place ports: %d function(s), %d now data; resized code kept stock: %s' % (
         sum(1 for p in ports if p.status == 'changed'), sum(1 for p in ports if p.status == 'data'),
         ', '.join('%s %08X-%08X' % (n, a, b) for n, a, b, _, _ in report['resized'] if b > a) or 'none'))
+    if getattr(A, 'moved_resized', None):
+        lines.append('resized overlay code moved whole: %d stretch(es), %d stock function(s) redirected' % (
+            len(A.moved_resized), report.get('resized_redirects', 0)))
     k = collections.Counter(x.kind for x in A.extras)
     lines.append('extra functions: %d payload, %d cave, %d reshaped, %d mid-function return points' % (k['payload'], k['cave'], k['reshaped'], k['mid']))
     lines.append('data words changed: %d; payload pointers translated: %d' % (report['data_words_changed'], report.get('payload_pointers_translated', 0)))

@@ -331,6 +331,48 @@ def fake_main(funcs, stock_words, hack_words):
     return A, D
 
 
+HULK = 0x48756C6B   # "Hulk": COP2, not an instruction a game has
+
+
+class DataInCodeTests(unittest.TestCase):
+    def test_dead_code_filled_with_names_is_data(self):
+        whole, _ = d.data_in_code([HULK, 0x20486F67, 0x616E0000, NOP], 0x80001000)
+        self.assertTrue(whole)
+
+    def test_stray_word_after_the_return_is_unreached(self):
+        whole, unreached = d.data_in_code([addiu(V0, 0, 1), jr(RA), NOP, HULK], 0x80001000)
+        self.assertFalse(whole)
+        self.assertEqual(unreached, {3})
+
+    def test_branch_target_is_reached(self):
+        # beq over a word to code after the return: both are code
+        words = [beq(A0, 0, 3), NOP, jr(RA), NOP, addiu(V0, 0, 2), jr(RA), NOP]
+        self.assertEqual(d.data_in_code(words, 0x80001000), (False, set()))
+
+    def test_chunk_is_judged_per_function(self):
+        # a changed chunk of two stock functions: the first now holds names, the second is hack code
+        stock = {0x80000400: addiu(V0, 0, 1), 0x80000404: jr(RA), 0x80000408: NOP, 0x8000040C: NOP,
+                 0x80000410: addiu(V0, 0, 2), 0x80000414: jr(RA), 0x80000418: NOP, 0x8000041C: NOP}
+        A, _ = fake_main([(0x80000400, 0x10), (0x80000410, 0x10)], stock, {})
+        sw = [stock[0x80000400 + 4 * i] for i in range(8)]
+        hw = [HULK, 0x20486F67, 0x616E0000, 0, addiu(V0, 0, 3), jr(RA), NOP, NOP]
+        ports = d.port_data_chunk(A, 'main', 0x80000400, 0x80000400, 0x20, hw, sw, shift_map([]))
+        self.assertEqual([(p.stock_vram, p.status) for p in ports], [(0x80000400, 'data'), (0x80000410, 'changed')])
+        self.assertEqual(ports[0].words, hw[:4])
+
+    def test_unreached_word_pointing_nowhere_is_kept_as_it_is(self):
+        # a stray word after the return decodes as a jal to nowhere: data, not an unresolved reference
+        stock = {0x80000400: addiu(V0, 0, 1), 0x80000404: jr(RA), 0x80000408: NOP, 0x8000040C: NOP}
+        A, _ = fake_main([(0x80000400, 0x10)], stock, {})
+        sw = [stock[0x80000400 + 4 * i] for i in range(4)]
+        hw = [HULK, 0, 0, 0]                                   # the function's entry is data...
+        p = d.port_data_chunk(A, 'main', 0x80000400, 0x80000400, 0x10, hw, sw, shift_map([]))
+        self.assertEqual([(x.status, x.problems) for x in p], [('data', [])])
+        hw = [addiu(V0, 0, 5), jr(RA), NOP, jal(0x80300000)]   # ...or only a stray word is
+        p = d.port_data_chunk(A, 'main', 0x80000400, 0x80000400, 0x10, hw, sw, shift_map([]))
+        self.assertEqual([(x.status, x.problems, x.words[3]) for x in p], [('changed', [], jal(0x80300000))])
+
+
 class EntryPassTests(unittest.TestCase):
     def test_tail_call_into_the_middle_of_a_function_gets_an_entry(self):
         hack = {0x80000400: j(0x80000418), 0x80000404: NOP, 0x80000410: addiu(V0, 0, 1),
@@ -385,6 +427,15 @@ class JumpTableCheckTests(unittest.TestCase):
         # ...which is fine once the hack's code range is declared
         self.assertEqual(d.check_jump_tables(bytes(rom), [(0x80000000, 0x0, 4 * len(code))],
                                              [(0x80400000, 0x80500000)], []), [])
+
+    def test_jump_through_a_pointer_variable_is_not_a_table(self):
+        # lui + lw %lo + jr with no index added: a function pointer, which the runtime calls through the lookup
+        rom = bytearray(0x200)
+        h, l = hi_lo(0x80000100)
+        code = [lui(AT, h), lw(V0, l, AT), jr(V0), NOP, jr(RA), NOP]
+        put(rom, 0x0, code)
+        put(rom, 0x100, [0x80400000])
+        self.assertEqual(d.check_jump_tables(bytes(rom), [(0x80000000, 0x0, 4 * len(code))], [], []), [])
 
 
 class BpsTests(unittest.TestCase):

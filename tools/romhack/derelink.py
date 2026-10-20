@@ -873,6 +873,39 @@ def keep_stock_zones(A, name, gap=0x400):
     return [tuple(z) for z in out]
 
 
+def port_data_chunk(A, name, s, h, z, hw, sw, tr):
+    """Ports for a changed chunk whose entry is data: each stock function inside is data (copied
+    as it is) unless the code traced from its own start decodes, then it's rewritten as code. The
+    bytes between functions are copied as they are."""
+    st = A.byname[name]
+    out, pos = [], s
+    funcs = sorted((st.text + o, sz) for o, sz in section_funcs(A, name) if s <= st.text + o and st.text + o + sz <= s + z)
+    for v, sz in funcs + [(s + z, 0)]:
+        if v > pos:
+            i, j = (pos - s) // 4, (v - s) // 4
+            if hw[i:j] != sw[i:j]:
+                out.append(Port(name, pos, v - pos, hw[i:j], 'data', []))
+        if not sz:
+            break
+        i, j = (v - s) // 4, (v + sz - s) // 4
+        sub, ssub = hw[i:j], sw[i:j]
+        pos = v + sz
+        if sub == ssub:
+            continue
+        whole, unreached = data_in_code(sub, h + (v - s))
+        if whole:
+            out.append(Port(name, v, sz, sub, 'data', []))
+            continue
+        probs = []
+        nw = rewrite(sub, h + (v - s), v, tr, ssub, probs)
+        bad = {p[0] for p in probs}
+        stray = {k for k in unreached if not mips.plausible(sub[k]) or k in bad}
+        for k in stray:
+            nw[k] = sub[k]
+        out.append(Port(name, v, sz, nw, 'moved' if nw == ssub else 'changed', [p for p in probs if p[0] not in stray]))
+    return out
+
+
 def port_code(A):
     """Classify every stock function and port the changed ones in place.
     status: 'moved' (translated hack == stock: keep the static code), 'changed' (ported in place).
@@ -896,6 +929,13 @@ def port_code(A):
                 nw = rewrite(hw, h, s, tr, None, probs) + [0] * (n - hn)
             else:
                 hw = [word(A.hack, A.hack_rom_of(name, h) + 4 * i) for i in range(n)]
+                rets = [t for t in getattr(A, 'return_init', {}) if h < t < h + z]
+                whole, unreached = data_in_code(hw, h, rets)
+                if whole and hw != sw:
+                    # Dead code the hack filled with data is copied as it is and never recompiled. A chunk
+                    # holds several stock functions: judge each one, as some may still be (hack) code.
+                    ports += port_data_chunk(A, name, s, h, z, hw, sw, tr)
+                    continue
                 nw = rewrite(hw, h, s, tr, sw, probs)
                 # %lo uses after a hook's return point that pair with the hook's lui
                 for t, init in getattr(A, 'return_init', {}).items():
@@ -906,6 +946,12 @@ def port_code(A):
                             nw2 = rewrite(hw[k:], t, s + 4 * k, tr, sw[k:], probs, init=init)
                             for i in ext:
                                 nw[k + i] = nw2[i]
+                # stray data words: unreached, and either not an instruction or "pointing" nowhere
+                bad = {p[0] for p in probs}
+                stray = {i for i in unreached if not mips.plausible(hw[i]) or i in bad}
+                for i in stray:
+                    nw[i] = hw[i]
+                probs = [p for p in probs if p[0] not in stray]
             status = 'moved' if nw == sw else 'changed'
             ports.append(Port(name, s, z, nw, status, probs))
     return ports, A.resized
@@ -970,6 +1016,39 @@ def trace_extent(get_word, entry, lo, hi):
                 break
             pc += 4
     return min(end, hi), jt, jalt, back
+
+
+def reach(get_word, entries, lo, hi):
+    """Addresses in [lo, hi) control can reach from `entries`: follows branches (both ways) and
+    fallthrough, stops after jr / j / an unconditional b (their delay slots included)."""
+    seen = set()
+    work = list(entries)
+    while work:
+        pc = work.pop()
+        while lo <= pc < hi and pc not in seen:
+            seen.add(pc)
+            w = get_word(pc)
+            t = mips.branch_target(w, pc)
+            if t is not None and t not in seen:
+                work.append(t)
+            if _ends_flow(w):
+                if lo <= pc + 4 < hi:
+                    seen.add(pc + 4)
+                break
+            pc += 4
+    return seen
+
+
+def data_in_code(hw, h, entries=()):
+    """Which words of a hack's function body may be data, not code: (whole, unreached). `whole`: the
+    code traced from its entry doesn't decode (the hack filled dead code with data: names, tables).
+    `unreached`: indices of words no entry reaches (stray data words, or code only a jump from
+    elsewhere enters)."""
+    get = lambda pc: hw[(pc - h) // 4]
+    seen = reach(get, [h] + list(entries), h, h + 4 * len(hw))
+    if any(not mips.plausible(get(pc)) for pc in seen):
+        return True, set()
+    return False, {i for i in range(len(hw)) if h + 4 * i not in seen}
 
 
 NEW_CODE_VRAM = 0x8F000000      # relocated hack code: never a data address (mods use 0x81000000+), only ever called
@@ -1817,7 +1896,7 @@ def assemble(A, report):
     for p in ports:
         if p.status == 'changed' and p.stock_vram in keep:
             p.status = 'kept'
-        if p.status == 'changed':
+        if p.status in ('changed', 'data'):
             r = A.byname[p.section].rom_of(p.stock_vram)
             for i, w in enumerate(p.words):
                 put_word(D, r + 4 * i, w)
@@ -1955,6 +2034,15 @@ def assemble(A, report):
         data_ranges.append([A.payload['ram'], A.payload['ram'] + A.payload['size'], A.payload['rom']])
     manifest = dict(format=1, base=A.layout.get('manifest_base', 'nomercy-rev1'), functions=functions, code_ranges=code_ranges,
                     data_ranges=data_ranges)
+    # stock functions now holding data: the runtime keeps their static code instead of recompiling the data
+    data_funcs = []
+    for p in ports:
+        if p.status == 'data':
+            st = A.byname[p.section]
+            data_funcs += [st.rom_of(st.text + o) for o, z in section_funcs(A, p.section)
+                           if p.stock_vram <= st.text + o and st.text + o + z <= p.stock_vram + p.size]
+    if data_funcs:
+        manifest['data_functions'] = sorted(set(data_funcs))
     if A.payload:
         p = A.payload
         manifest['preload'] = [dict(rom=p['rom'], ram=p['ram'], size=p['size'])]
@@ -1973,8 +2061,8 @@ def summarize(A, report):
     c = collections.Counter((p.section, p.status) for p in ports)
     lines = ['sections: ' + ', '.join('%s %d/%d changed' % (n, c[(n, 'changed')], c[(n, 'changed')] + c[(n, 'moved')])
                                       for n in A.units)]
-    lines.append('in-place ports: %d function(s); resized code kept stock: %s' % (
-        sum(1 for p in ports if p.status == 'changed'),
+    lines.append('in-place ports: %d function(s), %d now data; resized code kept stock: %s' % (
+        sum(1 for p in ports if p.status == 'changed'), sum(1 for p in ports if p.status == 'data'),
         ', '.join('%s %08X-%08X' % (n, a, b) for n, a, b, _, _ in report['resized'] if b > a) or 'none'))
     k = collections.Counter(x.kind for x in A.extras)
     lines.append('extra functions: %d payload, %d cave, %d reshaped, %d mid-function return points' % (k['payload'], k['cave'], k['reshaped'], k['mid']))
@@ -2107,8 +2195,10 @@ def main(argv=None):
 
 def check_jump_tables(D, functions, code_ranges, data_ranges):
     """Find jump tables the runtime's live recompiler would reject: (vram, jr pc, table, reason).
-    functions: [(vram, rom, size)]. Mirrors N64Recomp's analysis: a `lw reg, %lo(T)` feeding
-    `jr reg`; entries are read until one falls outside the function (or the hack code ranges)."""
+    functions: [(vram, rom, size)]. Mirrors N64Recomp's analysis: a `lw reg, %lo(T)` whose base had an
+    index added after the lui (`addu base, lui reg, index`), feeding `jr reg` (without the index it's a jump
+    through a pointer variable, not a table); entries are read until one falls outside the function (or the hack
+    code ranges)."""
     bad = []
     for f in functions:
         vram, rom, size = f[:3]
@@ -2116,7 +2206,12 @@ def check_jump_tables(D, functions, code_ranges, data_ranges):
         words = [word(D, rom + 4 * i) for i in range(size // 4)]
         loads = {}
         for hi, lo, a in mips.hilo_refs(words):
-            if words[lo] >> 26 == 0x23:
+            if words[lo] >> 26 != 0x23:
+                continue
+            base, lui_reg = (words[lo] >> 21) & 31, (words[hi] >> 16) & 31
+            indexed = any(w >> 26 == 0 and w & 0x3F in (0x21, 0x2D) and (w >> 11) & 31 == base
+                          and lui_reg in ((w >> 21) & 31, (w >> 16) & 31) for w in words[hi + 1:lo])
+            if indexed:
                 loads[lo] = a
         for i, w in enumerate(words):
             if w >> 26 != 0 or (w & 0x3F) != 0x08 or ((w >> 21) & 31) == 31:

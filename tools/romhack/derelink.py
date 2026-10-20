@@ -1783,6 +1783,7 @@ def kseg1_fixups(A, D, area, ports, report):
     (report['direct_rom_reads']). Only words the hack changed (ported code, in-place entries, the new-code area)."""
     rom_reads = 0
     fixed = 0
+    A.overwritten = []
     def fix(get, put, lo, hi):
         nonlocal rom_reads, fixed
         for v in range(lo, hi, 4):
@@ -1793,6 +1794,14 @@ def kseg1_fixups(A, D, area, ports, report):
             if 0xA000 <= imm <= 0xA07F:
                 put(v, (w & 0xFFFF0000) | (imm - 0x2000))
                 fixed += 1
+                # a copy loop's destination (lui base, `addiu rN, zero, count-1` next to it): the code there changes
+                # at run time, so it must not be precompiled (A.overwritten)
+                for k in range(-3, 4):
+                    c = get(v + 4 * k)
+                    if c >> 26 == 0x09 and (c >> 21) & 31 == 0 and k != 0:
+                        dst = ((imm - 0x2000) << 16) & 0xFFFFFFFF
+                        A.overwritten.append((dst, dst + 4 * ((c & 0xFFFF) + 1)))
+                        break
             elif 0xB000 <= imm <= 0xBFFF:
                 rom_reads += 1
     for p in ports:
@@ -2267,6 +2276,8 @@ def assemble(A, report):
     for x in A.extras:
         if x.vram is None or not x.size:
             continue
+        if x.kind == 'payload' and any(lo <= x.vram < hi for lo, hi in getattr(A, 'overwritten', [])):
+            continue    # the hack replaces this code at run time: the runtime compiles what's in RAM when it's called
         if x.kind == 'payload':
             x.rom = A.payload['rom'] + (x.vram - A.payload['ram'])
             floor = A.payload['ram']

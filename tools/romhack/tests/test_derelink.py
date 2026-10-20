@@ -493,6 +493,21 @@ class JumpTableCheckTests(unittest.TestCase):
         self.assertEqual(d.check_jump_tables(bytes(rom), [(0x80000000, 0x0, 4 * len(code))], [], []), [])
 
 
+class PayloadLoaderTests(unittest.TestCase):
+    def test_copy_loop_hook_later_in_the_entry_code(self):
+        # Revenge Starrcade 2.0: entry word 10 is `j cave`; the cave copies 1 MB from the cart to 0x80400000
+        T0, T1, T2, T3 = 8, 9, 10, 11
+        rom = bytearray(0x40000)
+        put(rom, 0x1000, [NOP] * 10 + [j(0x80010000), NOP])
+        h, l = hi_lo(0xB00DAC60)
+        cave = [lui(T0, h), addiu(T0, T0, l), lui(T1, 0x10), lui(T2, 0x8040), lw(T3, 0, T0),
+                (0x2B << 26) | (T2 << 21) | (T3 << 16), addiu(T0, T0, 4), addiu(T2, T2, 4), addiu(T1, T1, -4),
+                (0x05 << 26) | (T1 << 21) | (-6 & 0xFFFF), NOP, j(0x80000430), NOP]
+        put(rom, 0x1000 + (0x80010000 - 0x80000400), cave)
+        p = d.find_payload(bytes(rom))
+        self.assertEqual((p['rom'], p['ram'], p['size'], p['zero_lo'], p['cave']), (0xDAC60, 0x80400000, 0x100000, None, 0x80010000))
+
+
 class BpsTests(unittest.TestCase):
     def test_round_trip_with_moved_data(self):
         src = bytes(range(256)) * 64

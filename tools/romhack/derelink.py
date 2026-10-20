@@ -1031,7 +1031,7 @@ def find_payload(hack):
     zeroes [zero_lo, zero_hi) and copies ROM (KSEG1 0xB0000000+rom) to RAM until an end address."""
     w0 = word(hack, 0x1000)
     if w0 >> 26 != 2:
-        return None
+        return find_payload_copy_loop(hack)
     cave = mips.jump_target(w0, 0x80000400)
     rom = 0x1000 + (cave - 0x80000400)
     words = [word(hack, rom + 4 * i) for i in range(64)]
@@ -1043,6 +1043,45 @@ def find_payload(hack):
     zero_lo, zero_hi, dst, end = ram[0], ram[1], ram[2], ram[3]
     return dict(rom=cart[0] - 0xB0000000, ram=dst, size=end - dst, zero_lo=zero_lo, zero_hi=zero_hi + 4,
                 cave=cave, resume=0x80000404)
+
+
+def find_payload_copy_loop(hack):
+    """The other entry-hook form (Revenge Starrcade 2.0): a `j cave` anywhere in the entry code; the cave sets
+    registers with lui/addiu/ori, then copies words with `lw` from the cart (KSEG1) to Expansion RAM in a loop counted
+    down by 4 (or up to an end address), then jumps back into the entry code. No zeroing."""
+    hook = next((i for i in range(0x50 // 4) if word(hack, 0x1000 + 4 * i) >> 26 == 2), None)
+    if hook is None:
+        return None
+    cave = mips.jump_target(word(hack, 0x1000 + 4 * hook), 0x80000400 + 4 * hook)
+    rom = 0x1000 + (cave - 0x80000400)
+    if not 0 <= rom < len(hack) - 0x100:
+        return None
+    regs = {}
+    words = [word(hack, rom + 4 * i) for i in range(48)]
+    for i, w in enumerate(words):
+        op, rs, rt, imm = w >> 26, (w >> 21) & 31, (w >> 16) & 31, w & 0xFFFF
+        if op == 0x0F:                                          # lui
+            regs[rt] = (imm << 16) & 0xFFFFFFFF
+        elif op == 0x09 and rs in regs and rs == rt:            # addiu rt, rt, imm
+            regs[rt] = (regs[rs] + mips.sx16(imm)) & 0xFFFFFFFF
+        elif op == 0x0D and rs in regs and rs == rt:            # ori
+            regs[rt] |= imm
+        elif op == 0x23:                                        # lw: the loop starts here
+            src = rs
+            rest = words[i:i + 12]
+            sw = next((x for x in rest if x >> 26 == 0x2B), None)
+            bnez = next((x for x in rest if x >> 26 == 0x05), None)
+            if sw is None or bnez is None:
+                return None
+            dst, cnt = (sw >> 21) & 31, (bnez >> 21) & 31
+            if src not in regs or dst not in regs or cnt not in regs:
+                return None
+            s, t, n = regs[src], regs[dst], regs[cnt]
+            if not (0xB0000000 <= s < 0xB4000000 and 0x80400000 <= t < PAYLOAD_RAM_LIMIT and 0 < n <= PAYLOAD_RAM_LIMIT - t):
+                return None
+            return dict(rom=s - 0xB0000000, ram=t, size=n, zero_lo=None, zero_hi=None, cave=cave,
+                        resume=0x80000400 + 4 * (hook + 2))
+    return None
 
 
 def trace_extent(get_word, entry, lo, hi):
@@ -2121,7 +2160,8 @@ def assemble(A, report):
         p = A.payload
         manifest['preload'] = [dict(rom=p['rom'], ram=p['ram'], size=p['size'])]
         manifest['preload'] += getattr(A, 'ram_vars', [0, []])[1]
-        manifest['zero'] = [dict(ram=p['zero_lo'], size=p['zero_hi'] - p['zero_lo'])]
+        if p.get('zero_lo') is not None:
+            manifest['zero'] = [dict(ram=p['zero_lo'], size=p['zero_hi'] - p['zero_lo'])]
     if getattr(A, 'save_area', None):
         lo, hi, base = A.save_area
         manifest.setdefault('zero', []).append(dict(ram=base, size=(hi - lo + 0xF) & ~0xF))

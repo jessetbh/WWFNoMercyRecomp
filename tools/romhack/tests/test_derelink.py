@@ -394,6 +394,21 @@ class PaddingDataTests(unittest.TestCase):
     def test_a_changed_instruction_is_a_code_change(self):
         self.assertEqual(self.kept({0x80000400: addiu(V0, 0, 2), 0x80000418: HULK}), [])
 
+    def test_a_one_word_padding_function_holding_data_is_kept(self):
+        # Revenge Starrcade 0x8002E900: a 4-byte all-nop "function"; a table word there decodes as a jal
+        A, D = fake_main([(0x80000400, 0x4)], {}, {0x80000400: jal(0x80300000)})
+        self.assertEqual(d.unchanged_code_functions(A, D, [], {}), [0x1000])
+
+    def test_a_padding_function_the_code_before_runs_into_is_code(self):
+        # VPW Gamma 0x80158984: the hack's code in the function before continues into the one-word stub
+        stock = {0x80000400: jr(RA), 0x80000404: NOP}
+        A, D = fake_main([(0x80000400, 0x8), (0x80000408, 0x4)], stock,
+                         {0x80000400: addiu(V0, 0, 1), 0x80000404: addiu(V1, 0, 2), 0x80000408: lw(A0, 0, V0)})
+        self.assertEqual(d.unchanged_code_functions(A, D, [], {}), [])
+        # the function before still returns: nothing reaches the stub, so its word is data
+        A, D = fake_main([(0x80000400, 0x8), (0x80000408, 0x4)], stock, {**stock, 0x80000408: jal(0x80300000)})
+        self.assertEqual(d.unchanged_code_functions(A, D, [], {}), [0x1008])
+
 
 class EntryPassTests(unittest.TestCase):
     def test_tail_call_into_the_middle_of_a_function_gets_an_entry(self):

@@ -885,6 +885,7 @@ def unchanged_code_functions(A, D, ports, report):
         if x.kind == 'mid' and x.vram:
             entries[x.section].append(x.vram)
     out = []
+    funcs_of = {n: [(s.text + o, z) for o, z in section_funcs(A, n)] for n, s in A.byname.items()}
     for name, st in A.byname.items():
         for o, z in section_funcs(A, name):
             if not z:
@@ -909,8 +910,24 @@ def unchanged_code_functions(A, D, ports, report):
             seen = reach(lambda pc: words[(pc - v) // 4], [v] + ins, v, v + z)
             # only padding: every changed word was a stock nop that nothing reaches (hack code elsewhere can jump
             # into words the trace doesn't see, so a changed real instruction always counts as a code change)
-            # and at least one of them isn't an instruction, so it's data for certain
-            if all(v + 4 * i not in seen and word(A.base, r + 4 * i) == 0 for i in changed) and \
+            # and at least one of them isn't an instruction, so it's data for certain. A stock function that is
+            # all nops is padding: when it's at most two words no code fits, so any change there is data.
+            padding = all(word(A.base, r + 4 * i) == 0 for i in range(z // 4))
+            if padding and z <= 8:
+                # ...unless the function before it now runs into it (VPW Gamma's hack code continues into the stub)
+                # (any function covering the word before it: the stub may be another function's delay slot)
+                prev = [(pv, pz) for pv, pz in funcs_of[name] if pv < v <= pv + pz and pz]
+                into = False
+                for pv, pz in prev:
+                    pw = [word(D, st.rom_of(pv) + 4 * i) for i in range(pz // 4)]
+                    pseen = reach(lambda pc, pw=pw, pv=pv: pw[(pc - pv) // 4], [pv], pv, pv + pz)
+                    k = (v - 4 - pv) // 4
+                    into = into or (v - 4 in pseen and not _ends_flow(pw[k]) and not (k >= 1 and _ends_flow(pw[k - 1])))
+                if not into:
+                    out.append(r)
+                elif (name, v) not in ported:
+                    report.setdefault('unported_code_changes', []).append((name, v))
+            elif all(v + 4 * i not in seen and word(A.base, r + 4 * i) == 0 for i in changed) and \
                     not all(mips.plausible(words[i]) for i in changed):
                 out.append(r)
             elif (name, v) not in ported:

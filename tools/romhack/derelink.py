@@ -893,7 +893,8 @@ def port_data_chunk(A, name, s, h, z, hw, sw, tr):
         if sub == ssub:
             continue
         whole, unreached = data_in_code(sub, h + (v - s))
-        if whole:
+        if whole or not all(mips.plausible(w) for w in sub):
+            # in a chunk the hack filled with data, only clean code counts as code
             out.append(Port(name, v, sz, sub, 'data', []))
             continue
         probs = []
@@ -2046,7 +2047,7 @@ def assemble(A, report):
         if p.status == 'data':
             st = A.byname[p.section]
             data_funcs += [st.rom_of(st.text + o) for o, z in section_funcs(A, p.section)
-                           if p.stock_vram <= st.text + o and st.text + o + z <= p.stock_vram + p.size]
+                           if z and p.stock_vram <= st.text + o and st.text + o + z <= p.stock_vram + p.size]
     if data_funcs:
         manifest['data_functions'] = sorted(set(data_funcs))
     if A.payload:

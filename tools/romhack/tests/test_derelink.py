@@ -359,6 +359,10 @@ class DataInCodeTests(unittest.TestCase):
         ports = d.port_data_chunk(A, 'main', 0x80000400, 0x80000400, 0x20, hw, sw, shift_map([]))
         self.assertEqual([(p.stock_vram, p.status) for p in ports], [(0x80000400, 'data'), (0x80000410, 'changed')])
         self.assertEqual(ports[0].words, hw[:4])
+        # inside such a chunk, a function whose entry decodes but which holds a non-instruction is data too
+        hw[7] = HULK
+        ports = d.port_data_chunk(A, 'main', 0x80000400, 0x80000400, 0x20, hw, sw, shift_map([]))
+        self.assertEqual([(p.stock_vram, p.status) for p in ports], [(0x80000400, 'data'), (0x80000410, 'data')])
 
     def test_unreached_word_pointing_nowhere_is_kept_as_it_is(self):
         # a stray word after the return decodes as a jal to nowhere: data, not an unresolved reference

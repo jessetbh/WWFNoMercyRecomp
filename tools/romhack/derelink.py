@@ -2007,6 +2007,12 @@ def assemble(A, report):
         elif x.kind == 'mid':
             st = A.byname[x.section]
             f['data'] = [st.text, st.bss, st.rom]
+        elif x.kind == 'reshaped' and x.section in A.byname:
+            # a chunk moved to the new-code area whose switch table stayed in its section's data
+            st = A.byname[x.section]
+            words = [word(area, x.vram - NEW_CODE_VRAM + 4 * i) for i in range(x.size // 4)]
+            if any(st.text <= t < st.bss for _, t in jump_tables(words)):
+                f['data'] = [st.text, st.bss, st.rom]
         if f['size'] <= 0 or f['size'] & 3 or f['vram'] & 3 or f['rom'] + f['size'] > len(D) + len(area) + 0x10000:
             report.setdefault('bad_functions', []).append(f)
             continue
@@ -2193,37 +2199,43 @@ def main(argv=None):
 
 # ------------------------------------------------------------------------- offline checks
 
+def jump_tables(words):
+    """[(index of the jr, table address)]: as N64Recomp's analysis finds them, a `lw reg, %lo(T)` whose base
+    had an index added after the lui (`addu base, lui reg, index`), feeding `jr reg` (without the index it's
+    a jump through a pointer variable, not a table)."""
+    loads = {}
+    for hi, lo, a in mips.hilo_refs(words):
+        if words[lo] >> 26 != 0x23:
+            continue
+        base, lui_reg = (words[lo] >> 21) & 31, (words[hi] >> 16) & 31
+        indexed = any(w >> 26 == 0 and w & 0x3F in (0x21, 0x2D) and (w >> 11) & 31 == base
+                      and lui_reg in ((w >> 21) & 31, (w >> 16) & 31) for w in words[hi + 1:lo])
+        if indexed:
+            loads[lo] = a
+    out = []
+    for i, w in enumerate(words):
+        if w >> 26 != 0 or (w & 0x3F) != 0x08 or ((w >> 21) & 31) == 31:
+            continue
+        reg = (w >> 21) & 31
+        for j in range(i - 1, max(-1, i - 12), -1):
+            if j in loads and ((words[j] >> 16) & 31) == reg:
+                out.append((i, loads[j]))
+                break
+            if mips.gpr_written(words[j]) == reg:
+                break                   # the jr's register comes from something else
+    return out
+
+
 def check_jump_tables(D, functions, code_ranges, data_ranges):
     """Find jump tables the runtime's live recompiler would reject: (vram, jr pc, table, reason).
-    functions: [(vram, rom, size)]. Mirrors N64Recomp's analysis: a `lw reg, %lo(T)` whose base had an
-    index added after the lui (`addu base, lui reg, index`), feeding `jr reg` (without the index it's a jump
-    through a pointer variable, not a table); entries are read until one falls outside the function (or the hack
-    code ranges)."""
+    functions: [(vram, rom, size)]. Tables as jump_tables() finds them; entries are read until one falls
+    outside the function (or the hack code ranges)."""
     bad = []
     for f in functions:
         vram, rom, size = f[:3]
         own = [tuple(f[3])] if len(f) > 3 and f[3] else []
         words = [word(D, rom + 4 * i) for i in range(size // 4)]
-        loads = {}
-        for hi, lo, a in mips.hilo_refs(words):
-            if words[lo] >> 26 != 0x23:
-                continue
-            base, lui_reg = (words[lo] >> 21) & 31, (words[hi] >> 16) & 31
-            indexed = any(w >> 26 == 0 and w & 0x3F in (0x21, 0x2D) and (w >> 11) & 31 == base
-                          and lui_reg in ((w >> 21) & 31, (w >> 16) & 31) for w in words[hi + 1:lo])
-            if indexed:
-                loads[lo] = a
-        for i, w in enumerate(words):
-            if w >> 26 != 0 or (w & 0x3F) != 0x08 or ((w >> 21) & 31) == 31:
-                continue
-            reg = (w >> 21) & 31
-            table = None
-            for j in range(i - 1, max(-1, i - 12), -1):
-                if j in loads and ((words[j] >> 16) & 31) == reg:
-                    table = loads[j]
-                    break
-            if table is None:
-                continue                # an indirect tail call, not a table
+        for i, table in jump_tables(words):
             trom = None
             for lo, hi, r in own + list(data_ranges):
                 if lo <= table < hi:

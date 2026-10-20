@@ -437,6 +437,16 @@ class JumpTableCheckTests(unittest.TestCase):
         put(rom, 0x100, [0x80400000])
         self.assertEqual(d.check_jump_tables(bytes(rom), [(0x80000000, 0x0, 4 * len(code))], [], []), [])
 
+    def test_load_overwritten_before_the_jr_is_not_its_table(self):
+        # an indexed array load into v0, then v0 is recomputed from another base before the jr
+        rom = bytearray(0x200)
+        h, l = hi_lo(0x80000100)
+        A2, T3 = 6, 11
+        code = [lui(V0, h), addu(V0, V0, A2), lw(V0, l, V0), addu(V0, V1, T3), lw(V0, 0, V0), jr(V0), NOP]
+        put(rom, 0x0, code)
+        put(rom, 0x100, [0x80400000])
+        self.assertEqual(d.check_jump_tables(bytes(rom), [(0x80000000, 0x0, 4 * len(code))], [], []), [])
+
 
 class BpsTests(unittest.TestCase):
     def test_round_trip_with_moved_data(self):

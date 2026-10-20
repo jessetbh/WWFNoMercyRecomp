@@ -426,6 +426,42 @@ class EntryPassTests(unittest.TestCase):
         d.add_branch_out_entries(A, D, [d.Port('main', 0x80000400, 0x20, None, 'changed', [])])
         self.assertEqual([(x.vram, x.size) for x in A.extras], [(0x80000410, 0x10)])
 
+    def test_jump_to_code_in_padding_between_functions_gets_an_entry_in_place(self):
+        # VPW64 Deluxe: func_80003E88 jumps to a trampoline in the padding after the entry code, which branches
+        # and jumps back into the function: kept at its own address, registered, and its targets too
+        hack = {0x80000400: addiu(V0, 0, 1), 0x80000404: j(0x80000428), 0x80000408: NOP,
+                0x80000410: addiu(V0, 0, 2), 0x80000414: jr(RA), 0x80000418: NOP,
+                0x80000428: beq(17, 0, (0x80000410 - 0x8000042C) >> 2), 0x8000042C: NOP,
+                0x80000430: j(0x80000414), 0x80000434: NOP}
+        A, D = fake_main([(0x80000400, 0x20), (0x80000440, 0x10)], {0x80000400: jr(RA)}, hack)
+        A.place, A.hack = {'main': (0x1000, 0x80000400)}, bytes(D)
+        d.add_branch_out_entries(A, D, [d.Port('main', 0x80000400, 0x20, None, 'changed', [])])
+        self.assertEqual(sorted((x.vram, x.size) for x in A.extras),
+                         [(0x80000410, 0x10), (0x80000414, 0xC), (0x80000428, 0x10)])
+
+    def test_padding_jump_target_the_hack_left_stock_gets_no_entry(self):
+        hack = {0x80000400: j(0x80000428), 0x80000404: NOP}
+        A, D = fake_main([(0x80000400, 0x20), (0x80000440, 0x10)], {0x80000400: jr(RA)}, hack)
+        A.place, A.hack = {'main': (0x1000, 0x80000400)}, bytes(D)
+        d.add_branch_out_entries(A, D, [d.Port('main', 0x80000400, 0x20, None, 'changed', [])])
+        self.assertEqual(A.extras, [])
+
+    def test_body_with_data_after_its_jump_is_still_scanned(self):
+        # VPW64 Deluxe's func_80003E88 keeps a table after its `j`: the code its entry reaches is scanned
+        hack = {0x80000400: j(0x80000428), 0x80000404: NOP, 0x80000408: HULK, 0x8000040C: HULK,
+                0x80000420: addiu(V0, 0, 2), 0x80000428: jr(RA), 0x8000042C: NOP}
+        A, D = fake_main([(0x80000400, 0x10), (0x80000420, 0x10)], {0x80000400: jr(RA)}, hack)
+        d.add_branch_out_entries(A, D, [d.Port('main', 0x80000400, 0x10, None, 'changed', [])])
+        self.assertEqual([(x.vram, x.size) for x in A.extras], [(0x80000428, 0x8)])
+
+    def test_jump_between_two_functions_of_one_port_gets_an_entry(self):
+        # the runtime regenerates stock functions one by one: a port spanning two still needs the entry
+        hack = {0x80000400: j(0x80000418), 0x80000404: NOP,
+                0x80000410: addiu(V0, 0, 2), 0x80000418: jr(RA), 0x8000041C: NOP}
+        A, D = fake_main([(0x80000400, 0x10), (0x80000410, 0x10)], {0x80000400: jr(RA)}, hack)
+        d.add_branch_out_entries(A, D, [d.Port('main', 0x80000400, 0x20, None, 'changed', [])])
+        self.assertEqual([(x.vram, x.size) for x in A.extras], [(0x80000418, 0x8)])
+
     def test_function_running_off_its_end_into_padding_gets_an_entry(self):
         # the hack replaced the exit of the first function; it now continues through padding
         stock = {0x80000400: addiu(V0, 0, 1), 0x80000408: jr(RA), 0x8000040C: NOP,

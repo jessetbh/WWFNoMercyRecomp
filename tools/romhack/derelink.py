@@ -1120,9 +1120,10 @@ def trace_extent(get_word, entry, lo, hi):
     return min(end, hi), jt, jalt, back
 
 
-def reach(get_word, entries, lo, hi):
+def reach(get_word, entries, lo, hi, follow_j=False):
     """Addresses in [lo, hi) control can reach from `entries`: follows branches (both ways) and
-    fallthrough, stops after jr / j / an unconditional b (their delay slots included)."""
+    fallthrough, stops after jr / j / an unconditional b (their delay slots included). follow_j: also
+    follow a `j` into [lo, hi) (a local jump when the range is one function)."""
     seen = set()
     work = list(entries)
     while work:
@@ -1131,6 +1132,8 @@ def reach(get_word, entries, lo, hi):
             seen.add(pc)
             w = get_word(pc)
             t = mips.branch_target(w, pc)
+            if t is None and follow_j and w >> 26 == 2:
+                t = mips.jump_target(w, pc)
             if t is not None and t not in seen:
                 work.append(t)
             if _ends_flow(w):
@@ -1644,6 +1647,35 @@ def add_fall_through_entries(A, D, ports):
         have.add((sec, t))
 
 
+def padding_code(A, D, sec, t, funcs):
+    """Hack code at t in text padding no stock function covers (VPW64 Deluxe's trampoline at 0x8000043C, after the
+    entry code, which branches back into func_80003E88): copied into D at its own address, since it branches back
+    into stock code it can't move. Returns its traced extent within the gap, or None. Only where the hack keeps the
+    section's text in place."""
+    st = A.byname[sec]
+    place = getattr(A, 'place', {})
+    if sec not in place or tuple(place[sec][:2]) != (st.rom, st.text):
+        return None
+    ext = [(st.text + o, st.text + o + z) for o, z in funcs if z]
+    lo_bound = st.text
+    e = A.byname.get('entry')
+    if sec == 'main' and e is not None and e.rom_of(st.text) == st.rom:
+        # main follows the entry code in the same image: the gap between them is main's padding too
+        ext += [(e.text + o, e.text + o + z) for o, z in e.funcs if z]
+        lo_bound = e.text
+    if not lo_bound <= t < st.data or any(a <= t < b for a, b in ext):
+        return None
+    lo = max([b for a, b in ext if b <= t], default=lo_bound)
+    hi = min([a for a, b in ext if a > t], default=st.data)
+    get = lambda v: word(A.hack, st.rom_of(v))
+    if get(t) == word(A.base, st.rom_of(t)) or not mips.plausible_entry([get(v) for v in range(t, min(hi, t + 24), 4)]):
+        return None
+    end = min(trace_extent(get, t, lo, hi)[0], hi)
+    for v in range(t, end, 4):
+        put_word(D, st.rom_of(v), get(v))
+    return end - t
+
+
 def add_branch_out_entries(A, D, ports, rounds=4):
     """Branches and `j` tail calls that leave a function (IDO shares tails between functions)
     become lookup tail calls in the live recompiler, so their targets must be registered: add each
@@ -1664,19 +1696,39 @@ def add_branch_out_entries(A, D, ports, rounds=4):
         new = []
         for sec, vram, size in bodies:
             st = A.byname[sec]
-            if not all(mips.plausible(word(D, st.rom_of(vram + 4 * i))) for i in range(size // 4)):
-                continue    # not code: its "branches" are data
-            for i in range(size // 4):
-                v = vram + 4 * i
+            get = lambda v, st=st: word(D, st.rom_of(v))
+            scan = range(vram, vram + size, 4)
+            if not all(mips.plausible(get(v)) for v in scan):
+                # data inside: only the code its entry reaches (VPW64 Deluxe's func_80003E88 keeps a table after
+                # its `j 0x8000043C`); not code at all when what the entry reaches doesn't decode
+                starts = [vram] + [st.text + o for o, z in funcs[sec] if vram < st.text + o < vram + size]
+                scan = sorted(reach(get, starts, vram, vram + size, follow_j=True))
+                if not all(mips.plausible(get(v)) for v in scan):
+                    continue    # not code: its "branches" are data
+            for v in scan:
                 w = word(D, st.rom_of(v))
                 t = mips.branch_target(w, v)
                 if t is None and w >> 26 in (2, 3):     # j, and jal into the middle of a function (Giant Series 64)
                     t = mips.jump_target(w, v)
+                if t is None or (sec, t) in have:
+                    continue
                 # a branch or j inside the function stays a local jump; a jal is a call through the lookup even
-                # when it targets its own function's middle (Giant Series 64 calls 0x800071D4 from 0x80007070)
-                if t is None or (vram <= t < vram + size and (w >> 26 != 3 or t == vram)) or (sec, t) in have:
+                # when it targets its own function's middle (Giant Series 64 calls 0x800071D4 from 0x80007070).
+                # The function is the stock one holding v: the runtime regenerates them one by one, so a port
+                # spanning two needs entries for jumps between them (VPW64 Deluxe's `j 0x80003EB0` at 0x80003DC4)
+                own = [(st.text + o, st.text + o + z) for o, z in funcs[sec] if z and st.text + o <= v < st.text + o + z]
+                flo, fhi = min(own, key=lambda f: f[1] - f[0]) if own else (vram, vram + size)
+                flo, fhi = max(flo, vram), min(fhi, vram + size)
+                if flo <= t < fhi and (w >> 26 != 3 or t == flo):
                     continue
                 inside = [(st.text + o, z) for o, z in funcs[sec] if st.text + o < t < st.text + o + z]
+                if not inside and not any(st.text + o == t for o, z in funcs[sec]):
+                    pad = padding_code(A, D, sec, t, funcs[sec])
+                    if pad:
+                        A.extras.append(Extra('mid', None, t, pad, section=sec))
+                        have.add((sec, t))
+                        new.append((sec, t, pad))
+                    continue
                 if not inside or any(st.text + o == t for o, z in funcs[sec]):
                     continue        # a real function start is registered already
                 fs, fz = min(inside, key=lambda f: f[1])
@@ -2069,7 +2121,7 @@ def assemble(A, report):
         else:
             st = A.byname[x.section]
             x.rom = st.rom_of(x.vram)
-            floor = max(lo for lo, hi in [(st.text + o, st.text + o + z) for o, z in section_funcs(A, x.section)] if lo <= x.vram)
+            floor = max((lo for lo, hi in [(st.text + o, st.text + o + z) for o, z in section_funcs(A, x.section)] if lo <= x.vram), default=x.vram)
         f = dict(vram=x.vram, rom=x.rom, size=x.size, kind=x.kind)
         if x.kind == 'mid' and A.byname[x.section].slot is not None:
             f['section_rom'] = A.byname[x.section].rom

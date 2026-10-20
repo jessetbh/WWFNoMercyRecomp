@@ -1481,6 +1481,38 @@ def translate_data(A, D, report):
     report['data_words_changed'] = changed
 
 
+def keep_caves_in_place(A, D, report):
+    """Main-data caves also keep their code at the hack's addresses, where main's data isn't shifted: code the hack
+    loads at run time (compressed modules, out of reach of the rewrite) jumps there (VPW64 Deluxe's hooks fall back
+    to 0x8003C5D0), and the runtime compiles it from RAM. Only runs written mostly over stock padding (zero words,
+    which may start in the last words of what was there): a cave block can span microcode the hack modified, which
+    must stay stock for the renderer to recognize it."""
+    main = A.byname['main']
+    hrom, htext, htext_end, hdata, hend = A.place['main']
+    if (htext, htext_end, hdata) == (main.text, main.data, main.data):
+        ident = [(main.data, main.bss)]     # main kept the stock bounds: its data isn't shifted (whatever matching said)
+    else:
+        ident = [(lo, hi) for lo, hi, d, kind in A.map.main if kind == 'data' and d == 0]
+    kept = 0
+    for kind, sec, lo, hi, nv in A.new_blocks:
+        if kind != 'cave' or sec:
+            continue
+        run = []
+        for y in range(lo, hi + 4, 4):
+            r = main.rom_of(y)
+            ok = y < hi and any(a <= y < b for a, b in ident) and main.data <= y < main.bss
+            hw = word(A.hack, hrom + (y - htext)) if ok else 0
+            if ok and hw != word(D, r) and word(D, r) == word(A.base, r):
+                run.append((r, hw))
+                continue
+            if run and 2 * sum(word(A.base, r_) == 0 for r_, _ in run) > len(run):
+                for r_, w_ in run:
+                    put_word(D, r_, w_)
+                kept += len(run)
+            run = []
+    report['cave_words_kept_in_place'] = kept
+
+
 def payload_fixups(A, D, report):
     """Rewrite the payload's code (hack -> stock addresses) and translate pointers in its data."""
     p = A.payload
@@ -2061,6 +2093,7 @@ def assemble(A, report):
     report['ports'] = ports
     report['resized'] = resized
     translate_data(A, D, report)
+    keep_caves_in_place(A, D, report)
     payload_fixups(A, D, report)
     # new-code area: caves and reshaped chunks, copied whole, their code rewritten in place
     new_rom = (len(D) + 0xFFFF) & ~0xFFFF

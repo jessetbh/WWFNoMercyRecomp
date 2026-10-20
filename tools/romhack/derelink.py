@@ -1148,7 +1148,9 @@ def discover_extra_code(A):
         regions.append(('reshaped', hlo, hhi, lambda v, name=name: word(A.hack, A.hack_rom_of(name, v)), name))
     skip = {A.payload['cave']} if A.payload else set()
 
-    stock_code = [(x['ram'], x['ram'] + x['size']) for x in A.layout.get('extra_code', [])]
+    # the stock functions themselves, not their chunk's span: hacks put code in the padding between them
+    # (Revenge Starrcade 2.0 jumps to 0x8002EB04, between the stub at 0x8002E900 and 0x8002EC2C)
+    stock_code = [(x['ram'] + o, x['ram'] + o + z) for x in A.layout.get('extra_code', []) for o, z in x['funcs'] if z]
 
     def region_of(a, src=None):
         for r in regions:

@@ -418,6 +418,14 @@ class EntryPassTests(unittest.TestCase):
         d.add_branch_out_entries(A, D, [d.Port('main', 0x80000400, 0x10, None, 'changed', [])])
         self.assertEqual([(x.vram, x.size) for x in A.extras], [(0x80000418, 0x18)])
 
+    def test_jal_into_the_middle_of_its_own_function_gets_an_entry(self):
+        # Giant Series 64: a changed function calls a point inside itself (a call goes through the lookup)
+        hack = {0x80000400: jal(0x80000410), 0x80000404: NOP, 0x80000408: jr(RA), 0x8000040C: NOP,
+                0x80000410: addiu(V0, 0, 2), 0x80000414: jr(RA), 0x80000418: NOP}
+        A, D = fake_main([(0x80000400, 0x20)], {0x80000400: jr(RA)}, hack)
+        d.add_branch_out_entries(A, D, [d.Port('main', 0x80000400, 0x20, None, 'changed', [])])
+        self.assertEqual([(x.vram, x.size) for x in A.extras], [(0x80000410, 0x10)])
+
     def test_function_running_off_its_end_into_padding_gets_an_entry(self):
         # the hack replaced the exit of the first function; it now continues through padding
         stock = {0x80000400: addiu(V0, 0, 1), 0x80000408: jr(RA), 0x8000040C: NOP,

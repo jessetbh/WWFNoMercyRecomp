@@ -1631,9 +1631,11 @@ def add_branch_out_entries(A, D, ports, rounds=4):
                 v = vram + 4 * i
                 w = word(D, st.rom_of(v))
                 t = mips.branch_target(w, v)
-                if t is None and w >> 26 == 2:
+                if t is None and w >> 26 in (2, 3):     # j, and jal into the middle of a function (Giant Series 64)
                     t = mips.jump_target(w, v)
-                if t is None or vram <= t < vram + size or (sec, t) in have:
+                # a branch or j inside the function stays a local jump; a jal is a call through the lookup even
+                # when it targets its own function's middle (Giant Series 64 calls 0x800071D4 from 0x80007070)
+                if t is None or (vram <= t < vram + size and (w >> 26 != 3 or t == vram)) or (sec, t) in have:
                     continue
                 inside = [(st.text + o, z) for o, z in funcs[sec] if st.text + o < t < st.text + o + z]
                 if not inside or any(st.text + o == t for o, z in funcs[sec]):

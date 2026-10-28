@@ -2244,6 +2244,23 @@ def between_blocks(blocks, rom_size):
     return [(edges[i], edges[i + 1]) for i in range(1, len(edges) - 1, 2) if edges[i] < edges[i + 1]]
 
 
+def stock_descriptor_rom_fields(A, D):
+    """The overlay descriptors' ROM start/end words point at the stock overlays: the patched ROM keeps them at their
+    stock offsets, but a hack on another revision lists its own (9 Underground: ovl_a at 0xA1CD06, stock 0xA21750),
+    so the port's overlay swap never recognised the DMA. Only words still holding the hack's value change."""
+    count = A.layout.get('descriptor_count', 5)
+    table = A.layout.get('descriptor_table') or find_descriptor_table(A.base, count=count)
+    stock, hack = read_descriptors(A.base, table, count), read_descriptors(A.hack, A.table, count)
+    n = 0
+    for i in range(count):
+        for k in (0, 1):
+            off = table + 4 * (DESC_WORDS * i + k)
+            if word(D, off) == hack[i][k] != stock[i][k]:
+                put_word(D, off, stock[i][k])
+                n += 1
+    return n
+
+
 def assemble(A, report):
     """The stock-layout ROM: stock code/data with the hack's changes, the hack's assets and
     payload, and the new-code area appended. Returns (rom bytes, relink manifest)."""
@@ -2263,6 +2280,7 @@ def assemble(A, report):
     report['ports'] = ports
     report['resized'] = resized
     translate_data(A, D, report)
+    report['descriptor_rom_fields'] = stock_descriptor_rom_fields(A, D)
     keep_caves_in_place(A, D, report)
     resized_redirects(A, D, report)
     payload_fixups(A, D, report)

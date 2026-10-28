@@ -410,6 +410,22 @@ class PaddingDataTests(unittest.TestCase):
         self.assertEqual(d.unchanged_code_functions(A, D, [], {}), [0x1008])
 
 
+class DescriptorRomTests(unittest.TestCase):
+    def test_overlay_rom_offsets_go_back_to_the_stock_overlays(self):
+        # 9 Underground (aki-roadmap#120): rev 1 lists ovl_a at 0xA1CD06; the patched ROM has it at 0xA21750
+        import types
+        def table(rom_a, rom_b, rom_c, ram):
+            return [rom_a, rom_b, 0x80090000, 0x80090000, ram, ram, 0, 0, 0] + [rom_b, rom_c, 0x80090000] + [0] * 6
+        base, hack, D = bytearray(0x200), bytearray(0x200), bytearray(0x200)
+        put(base, 0x100, table(0xA21750, 0xA69570, 0xAC2970, 0x800C3BC0))
+        put(hack, 0x80, table(0xA1CD06, 0xA64C76, 0xABE0A6, 0x800C3CD0))
+        put(D, 0x100, table(0xA1CD06, 0xA64C76, 0x00ABE0A6, 0x800C3BC0))   # RAM fields already translated
+        A = types.SimpleNamespace(layout={'descriptor_count': 2, 'descriptor_table': 0x100}, base=bytes(base),
+                                  hack=bytes(hack), table=0x80)
+        self.assertEqual(d.stock_descriptor_rom_fields(A, D), 4)
+        self.assertEqual(bytes(D[0x100:0x148]), bytes(base[0x100:0x148]))
+
+
 class PaddingCodeTests(unittest.TestCase):
     """Hack code in a text gap no stock function covers is kept and registered only where the hack's text is
     unshifted; in 9 Underground (rev 1 main shifted by -0x70) the gap is __osSiRawStartDma, which the runtime

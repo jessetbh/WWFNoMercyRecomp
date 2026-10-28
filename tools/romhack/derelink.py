@@ -1780,6 +1780,10 @@ def padding_code(A, D, sec, t, funcs):
         lo_bound = e.text
     if not lo_bound <= t < st.data or any(a <= t < b for a, b in ext):
         return None
+    if getattr(A, 'map', None) is not None and A.map.translate(t, sec) not in (None, t):
+        # the hack's code is shifted here (9 Underground, rev 1 main): the gap holds a function the runtime
+        # implements natively (World Tour's __osSiRawStartDma at 0x80023970), not hack code in padding
+        return None
     lo = max([b for a, b in ext if b <= t], default=lo_bound)
     hi = min([a for a, b in ext if a > t], default=st.data)
     get = lambda v: word(A.hack, st.rom_of(v))

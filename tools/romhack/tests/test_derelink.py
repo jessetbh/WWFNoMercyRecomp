@@ -410,6 +410,27 @@ class PaddingDataTests(unittest.TestCase):
         self.assertEqual(d.unchanged_code_functions(A, D, [], {}), [0x1008])
 
 
+class PaddingCodeTests(unittest.TestCase):
+    """Hack code in a text gap no stock function covers is kept and registered only where the hack's text is
+    unshifted; in 9 Underground (rev 1 main shifted by -0x70) the gap is __osSiRawStartDma, which the runtime
+    implements natively (aki-roadmap#120)."""
+
+    def pad(self, delta):
+        import types
+        hack = {0x80000410: addiu(V0, 0, 1), 0x80000414: addiu(V1, 0, 2), 0x80000418: jr(RA), 0x8000041C: NOP}
+        A, D = fake_main([(0x80000400, 0x10), (0x80000430, 0x10)], {0x80000410: lw(A0, 0, V0)}, hack)
+        A.hack = bytes(D)
+        A.place = {'main': (0x1000, 0x80000400)}
+        A.map = types.SimpleNamespace(translate=lambda a, ctx=None: (a + delta) & 0xFFFFFFFF)
+        return d.padding_code(A, D, 'main', 0x80000410, A.byname['main'].funcs)
+
+    def test_unshifted_text_keeps_the_hack_code(self):
+        self.assertEqual(self.pad(0), 0x10)
+
+    def test_shifted_text_leaves_the_gap_to_the_runtime(self):
+        self.assertIsNone(self.pad(0x70))
+
+
 class EntryPassTests(unittest.TestCase):
     def test_tail_call_into_the_middle_of_a_function_gets_an_entry(self):
         hack = {0x80000400: j(0x80000418), 0x80000404: NOP, 0x80000410: addiu(V0, 0, 1),

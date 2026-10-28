@@ -426,6 +426,25 @@ class DescriptorRomTests(unittest.TestCase):
         self.assertEqual(bytes(D[0x100:0x148]), bytes(base[0x100:0x148]))
 
 
+class InstructionPatchTests(unittest.TestCase):
+    """aki-roadmap#120: 9 Underground changes World Tour's idle thread, so the live-compiled copy needs the port's
+    `b .` (0x1000FFFF at 0x8000058C) or its `jal; b` loop never yields."""
+
+    def run_patch(self, status, hack_word):
+        stock = {0x80000400: jr(RA), 0x80000410: beq(0, 0, -3)}
+        A, D = fake_main([(0x80000400, 0x20)], stock, {0x80000400: addiu(V0, 0, 1), 0x80000410: hack_word})
+        A.layout['instruction_patches'] = [[0x80000410, 0x1000FFFF]]
+        n = d.port_instruction_patches(A, D, [d.Port('main', 0x80000400, 0x20, None, status, [])])
+        return n, struct.unpack('>I', bytes(D[0x1010:0x1014]))[0]
+
+    def test_a_changed_function_gets_the_patch(self):
+        self.assertEqual(self.run_patch('changed', beq(0, 0, -3)), (1, 0x1000FFFF))
+
+    def test_an_unchanged_function_or_another_word_is_left_alone(self):
+        self.assertEqual(self.run_patch('kept', beq(0, 0, -3)), (0, beq(0, 0, -3)))
+        self.assertEqual(self.run_patch('changed', NOP), (0, NOP))
+
+
 class PaddingCodeTests(unittest.TestCase):
     """Hack code in a text gap no stock function covers is kept and registered only where the hack's text is
     unshifted; in 9 Underground (rev 1 main shifted by -0x70) the gap is __osSiRawStartDma, which the runtime

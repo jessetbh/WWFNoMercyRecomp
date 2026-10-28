@@ -2225,6 +2225,24 @@ def add_entry_logs(A, D, area, report):
 CODE_BLOCK_GAP = 0x10000
 
 
+def port_instruction_patches(A, D, ports):
+    """The port's own instruction patches (its recompiler config's [[patches.instruction]], listed in the layout as
+    "instruction_patches": [[vram, value], ...]) applied to functions the hack changed: the runtime live-compiles
+    those from the ROM, so a patch only the static code has is lost. World Tour's idle thread (func_800004AC, changed
+    by 9 Underground) spins in `jal; b` without its `b .` at 0x8000058C, and native threads never preempt it.
+    A patch applies only where the word is still the stock one. Returns the patches applied."""
+    n = 0
+    for vram, value in A.layout.get('instruction_patches', []):
+        for p in ports:
+            if p.status != 'changed' or not p.stock_vram <= vram < p.stock_vram + p.size:
+                continue
+            r = A.byname[p.section].rom_of(vram)
+            if word(D, r) == word(A.base, r):
+                put_word(D, r, value)
+                n += 1
+    return n
+
+
 def stock_code_blocks(secs):
     """ROM ranges that take the stock bytes: the header and boot code plus the sections, with sections
     under CODE_BLOCK_GAP apart merged. Everything else keeps the hack's bytes, so its assets stay at the
@@ -2279,6 +2297,7 @@ def assemble(A, report):
                 put_word(D, r + 4 * i, w)
     report['ports'] = ports
     report['resized'] = resized
+    report['instruction_patches'] = port_instruction_patches(A, D, ports)
     translate_data(A, D, report)
     report['descriptor_rom_fields'] = stock_descriptor_rom_fields(A, D)
     keep_caves_in_place(A, D, report)

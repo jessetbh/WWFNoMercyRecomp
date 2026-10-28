@@ -226,6 +226,11 @@ class CaveBlockTests(unittest.TestCase):
         caves = [(0x80030000, 0x80030040), (0x80030048, 0x80030080), (0x80030010, 0x80030020)]
         self.assertEqual(d.cave_blocks(caves), [(0x80030000, 0x80030080)])
 
+    def test_gap_boundary(self):
+        self.assertEqual(d.cave_blocks([(0x80030000, 0x80030010), (0x80030020, 0x80030030)]), [(0x80030000, 0x80030030)])
+        self.assertEqual(d.cave_blocks([(0x80030000, 0x80030010), (0x80030024, 0x80030030)]),
+                         [(0x80030000, 0x80030010), (0x80030024, 0x80030030)])
+
     def test_no_caves(self):
         self.assertEqual(d.cave_blocks([]), [])
 

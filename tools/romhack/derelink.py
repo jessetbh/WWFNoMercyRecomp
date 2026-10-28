@@ -1345,12 +1345,10 @@ def discover_extra_code(A):
     A.region_entries = entries
     A.text_jumps = {t for t, _ in text_jumps}
 
-    # the new-code area: caves (one span) and each reshaped chunk, whole, in hack layout
+    # the new-code area: the caves (one block per cluster, cave_blocks) and each reshaped chunk, whole, in hack layout
     A.new_blocks = []                           # (kind, section, hack lo, hack hi, new vram)
     cur = NEW_CODE_VRAM
-    caves = sorted((e, end) for e, (r, end, _) in entries.items() if r[0] == 'cave')
-    if caves:
-        lo, hi = caves[0][0], max(end for _, end in caves)
+    for lo, hi in cave_blocks((e, end) for e, (r, end, _) in entries.items() if r[0] == 'cave'):
         A.new_blocks.append(('cave', None, lo, hi, cur))
         cur = (cur + (hi - lo) + 15) & ~15
     for name, slo, shi, hlo, hhi in A.reshaped:
@@ -1476,6 +1474,23 @@ def discover_extra_code(A):
 
 
 # ------------------------------------------------------------------------------ assembly
+
+CAVE_GAP = 0x10
+
+
+def cave_blocks(caves, gap=CAVE_GAP):
+    """The hack's cave code (entry, end) spans as blocks to move whole: spans at most gap bytes apart share a block (code
+    that falls through or sits back to back), farther ones get their own. One block over all of them took in the data
+    between two far caves (Revenge Starrcade 2.0: 0x8002EB04 and 0x8003A8E8 spanned ~48 KB of main's tables), whose
+    changes translate_data then skipped as cave code (jessetbh/aki-roadmap#119)."""
+    blocks = []
+    for lo, hi in sorted(caves):
+        if blocks and lo <= blocks[-1][1] + gap:
+            blocks[-1][1] = max(blocks[-1][1], hi)
+        else:
+            blocks.append([lo, hi])
+    return [tuple(b) for b in blocks]
+
 
 def code_spans(extras, kind):
     """Merged [lo, hi) hack spans of the extras of one kind."""

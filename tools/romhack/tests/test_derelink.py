@@ -544,6 +544,36 @@ class PayloadLoaderTests(unittest.TestCase):
         self.assertEqual((p['rom'], p['ram'], p['size'], p['zero_lo'], p['cave']), (0xDAC60, 0x80400000, 0x100000, None, 0x80010000))
 
 
+class StockCodeBlockTests(unittest.TestCase):
+    """aki-roadmap#120: World Tour keeps its overlays near the ROM end; the hack's assets before them must stay."""
+
+    def sec(self, name, rom, size):
+        return d.Section(name, rom, 0x80000000, 0x80000000, 0x80000000 + size, 0x80000000 + size)
+
+    def test_contiguous_sections_are_one_block_from_zero(self):
+        secs = [self.sec('entry', 0x1000, 0x50), self.sec('main', 0x1050, 0x38000),
+                self.sec('ovl_a', 0x39100, 0x1000)]
+        self.assertEqual(d.stock_code_blocks(secs), [(0, 0x3A100)])
+
+    def test_far_overlays_leave_the_assets_between(self):
+        secs = [self.sec('entry', 0x1000, 0x50), self.sec('main', 0x1050, 0x383A0),
+                self.sec('ovl_a', 0xA21750, 0x47E20), self.sec('ovl_b', 0xA69570, 0x59400)]
+        self.assertEqual(d.stock_code_blocks(secs), [(0, 0x393F0), (0xA21750, 0xAC2970)])
+        self.assertEqual(d.between_blocks(d.stock_code_blocks(secs), 0xC00000),
+                         [(0x393F0, 0xA21750), (0xAC2970, 0xC00000)])
+
+    def test_rom_offsets_into_the_hack_assets_are_not_read_as_physical_ram(self):
+        m = d.AddressMap()
+        m.main = [(0x80000450, 0x80040000, (-0x70) & 0xFFFFFFFF, 'data')]
+        m.finish()
+        self.assertEqual(m.candidates(0x00039500), [0x00039490])    # no asset area: physical RAM reading
+        m.assets = [(0x393F0, 0xA21750)]
+        self.assertEqual(m.candidates(0x00039500), [])              # 9 Underground's ROM offset stays
+        self.assertEqual(m.candidates(0x80039500), [0x80039490])    # RAM addresses still translate
+        m.rom = [(0x39400, 0x39460, (-0x70) & 0xFFFFFFFF)]
+        self.assertIn(0x00039390, m.candidates(0x00039400))         # main's own ROM data still translates
+
+
 class BpsTests(unittest.TestCase):
     def test_round_trip_with_moved_data(self):
         src = bytes(range(256)) * 64

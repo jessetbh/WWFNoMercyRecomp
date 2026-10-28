@@ -348,6 +348,7 @@ class AddressMap:
         self.evidence = {}      # overlay -> sorted hack addresses its own code references
         self.identity = [(0x80400000, 0x80800000)]
         self.rom = []           # [(hack_rom_lo, hack_rom_hi, delta)] for the code region (weak candidates)
+        self.assets = []        # [(rom_lo, rom_hi)]: the hack's assets, kept at its ROM offsets (no candidates)
 
     @staticmethod
     def _find(ranges, a):
@@ -390,6 +391,9 @@ class AddressMap:
         def add(r):
             if r is not None and r[0] not in out:
                 out.append(r[0])
+        if a < 0x00800000 and any(lo <= a < hi for lo, hi in self.assets) and \
+                not any(lo <= a < hi for lo, hi, _ in self.rom):
+            return []               # a ROM offset into the hack's assets, not a physical RAM address
         moved = self._find(self.priority, a)
         if moved:
             return [moved[0]]       # code or buffers moved out of the stock layout: no alternative
@@ -662,9 +666,20 @@ class Analysis:
                     amap.main.append((lo, hi, 0, 'heap'))
                 else:
                     amap.main.append((lo, hi, d, 'heap'))
+        # stock code blocks with a gap (World Tour's overlays sit past the assets): the hack's assets stay at
+        # its ROM offsets, so ROM offsets into them are kept and main's data ends where the hack's does
+        blocks = stock_code_blocks(self.secs)
+        if len(blocks) > 1:
+            amap.assets = between_blocks(blocks, len(self.hack))
         for name, (hrom, htext, htext_end, hdata, hend) in self.place.items():
             st = self.byname[name]
             hdata_rom_end = hrom + (self.hsecs[name].bss - htext) if self.hsecs.get(name) else hrom + (st.bss - st.text) + 0x100
+            if amap.assets and not self.hsecs.get(name):
+                rs = amap.main if name in ('main', 'entry') else amap.ovl[name]
+                ends = [(st.bss - d) & 0xFFFFFFFF for lo, hi, d, kind in rs
+                        if kind != 'exp' and lo <= (st.bss - d) & 0xFFFFFFFF <= hi]
+                if ends:
+                    hdata_rom_end = hrom + (ends[0] - htext)
             # ROM offsets inside a section translate like its RAM addresses (weak candidates)
             rs = amap.main if name in ('main', 'entry') else amap.ovl[name]
             for lo, hi, d, kind in rs:
@@ -2203,14 +2218,36 @@ def add_entry_logs(A, D, area, report):
         report.setdefault('entry_logs', []).append((sec, v, sv))
 
 
+CODE_BLOCK_GAP = 0x10000
+
+
+def stock_code_blocks(secs):
+    """ROM ranges that take the stock bytes: the header and boot code plus the sections, with sections
+    under CODE_BLOCK_GAP apart merged. Everything else keeps the hack's bytes, so its assets stay at the
+    hack's ROM offsets (World Tour keeps its overlays near the ROM end, past most of the assets)."""
+    blocks = []
+    for s in sorted(secs, key=lambda s: s.rom):
+        if blocks and s.rom - blocks[-1][1] < CODE_BLOCK_GAP:
+            blocks[-1][1] = max(blocks[-1][1], s.rom_end)
+        else:
+            blocks.append([0 if not blocks else s.rom, s.rom_end])
+    return [tuple(b) for b in blocks]
+
+
+def between_blocks(blocks, rom_size):
+    """The ROM ranges outside the stock code blocks (up to rom_size)."""
+    edges = [x for b in blocks for x in b] + [rom_size]
+    return [(edges[i], edges[i + 1]) for i in range(1, len(edges) - 1, 2) if edges[i] < edges[i + 1]]
+
+
 def assemble(A, report):
     """The stock-layout ROM: stock code/data with the hack's changes, the hack's assets and
     payload, and the new-code area appended. Returns (rom bytes, relink manifest)."""
     discover_extra_code(A)
     ports, resized = port_code(A)
     D = bytearray(A.hack)
-    code_end = max(s.rom + (s.bss - s.text) for s in A.secs)
-    D[0:code_end] = A.base[0:code_end]
+    for lo, hi in stock_code_blocks(A.secs):
+        D[lo:hi] = A.base[lo:hi]
     keep = set(getattr(A, 'experiment_stock_ports', ()))
     for p in ports:
         if p.status == 'changed' and p.stock_vram in keep:

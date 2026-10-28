@@ -807,6 +807,13 @@ static bool models_path_ok(const std::string& path) {
         return false;
     }
 
+    // Printable ASCII only: no codepage conversions (they throw on Windows), no control characters.
+    for (const char c : path) {
+        if ((c < 0x20) || (c > 0x7E)) {
+            return false;
+        }
+    }
+
     const size_t slash = path.find('/');
     if (slash == std::string::npos) {
         return true;
@@ -840,7 +847,14 @@ static void aki_models_read(uint8_t* rdram, recomp_context* ctx) {
     }
 
     std::error_code ec;
-    const std::filesystem::path file_path = models_directory() / std::filesystem::u8path(path);
+    std::filesystem::path file_path;
+    try {
+        file_path = models_directory() / std::filesystem::u8path(path);
+    } catch (...) {
+        _return(ctx, int32_t(-3));
+        return;
+    }
+
     const uintmax_t size = std::filesystem::file_size(file_path, ec);
     if (ec || !std::filesystem::is_regular_file(file_path, ec)) {
         _return(ctx, int32_t(-1));
@@ -872,14 +886,25 @@ static void aki_models_list(uint8_t* rdram, recomp_context* ctx) {
     const gpr out = gpr(int32_t(_arg<1, uint32_t>(rdram, ctx)));
     const uint32_t max = _arg<2, uint32_t>(rdram, ctx);
     std::vector<std::string> packs;
-    std::error_code ec;
-    for (const auto& entry : std::filesystem::directory_iterator(models_directory(), ec)) {
-        const std::string name = entry.path().filename().string();
-        const std::string ext = ".akimodel";
-        std::error_code dir_ec;
-        if (entry.is_directory(dir_ec) && (name.size() > ext.size()) && (name.compare(name.size() - ext.size(), ext.size(), ext) == 0)) {
-            packs.push_back(name.substr(0, name.size() - ext.size()));
+    try {
+        std::error_code ec;
+        for (const auto& entry : std::filesystem::directory_iterator(models_directory(), ec)) {
+            // Names outside ASCII can't be pack ids: skip them without converting (that throws on Windows).
+            const std::wstring wide = entry.path().filename().wstring();
+            if (std::any_of(wide.begin(), wide.end(), [](wchar_t c) { return (c < 0x20) || (c > 0x7E); })) {
+                continue;
+            }
+
+            const std::string name(wide.begin(), wide.end());
+            const std::string ext = ".akimodel";
+            std::error_code dir_ec;
+            if (entry.is_directory(dir_ec) && (name.size() > ext.size()) && (name.compare(name.size() - ext.size(), ext.size(), ext) == 0)) {
+                packs.push_back(name.substr(0, name.size() - ext.size()));
+            }
         }
+    } catch (...) {
+        _return(ctx, int32_t(-1));
+        return;
     }
 
     std::sort(packs.begin(), packs.end());

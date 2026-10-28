@@ -445,6 +445,23 @@ class InstructionPatchTests(unittest.TestCase):
         self.assertEqual(self.run_patch('changed', NOP), (0, NOP))
 
 
+class LikelyDelaySlotTests(unittest.TestCase):
+    """aki-roadmap#120: a register write in a branch-likely's delay slot happens only on the taken path, so the
+    fall-through %lo still pairs with the lui before it (9 Underground func_80099238 at 0x80099644..58)."""
+
+    def test_bc1tl_slot_write_keeps_the_lui_for_the_fall_through(self):
+        S1 = 17
+        words = [lui(V0, 0x800E), 0x4502000A, lw(V0, 0, S1), lw(V0, 0x168, V0)]
+        self.assertIn((0, 3, 0x800E0168), mips.hilo_refs(words))
+
+    def test_beql_slot_write_keeps_the_lui_but_a_plain_branch_slot_does_not(self):
+        S1 = 17
+        likely = [lui(V0, 0x800E), (0x14 << 26) | (A0 << 21) | 3, lw(V0, 0, S1), lw(V0, 0x18, V0)]
+        self.assertIn((0, 3, 0x800E0018), mips.hilo_refs(likely))
+        plain = [lui(V0, 0x800E), beq(A0, 0, 3), lw(V0, 0, S1), lw(V0, 0x18, V0)]
+        self.assertEqual(mips.hilo_refs(plain), [])
+
+
 class PaddingCodeTests(unittest.TestCase):
     """Hack code in a text gap no stock function covers is kept and registered only where the hack's text is
     unshifted; in 9 Underground (rev 1 main shifted by -0x70) the gap is __osSiRawStartDma, which the runtime

@@ -130,6 +130,28 @@ WCW_RESYNC_NULL_GUARD = [
     '    }\n',
 ]
 
+# [wcw fix] aki-roadmap#113: func_8010DC70 always stores its new value to 0x8015C8E0 (the store is in a branch
+# delay slot) but only sets the pending flag 0x8015CCD4 when the value is valid (< 25). A second call with 0xFF before
+# the polled consumer func_8010DD38 runs leaves the flag set over an invalid value; func_8001B3E4 then indexes its
+# 15-entry tables with value - 10 = 245 and func_80010314 walks a NULL array. On console the consumer runs between the
+# two calls; on the port a slower render thread (WCW_RICE_LOG) lets it slip. The game's own test for a valid value is
+# < 25 (func_8010DC70; func_8001B3E4 takes 0..9 down another path and indexes the tables with 10..24): call it only
+# for those and drop anything else (the flag is still cleared after the call, as before).
+WCW_PENDING_VALUE_GUARD = [
+    '    /* [wcw fix] aki-roadmap#113: only a value below 25 is valid for func_8001B3E4 (the game\'s own test); a\n',
+    '       pending flag left set over an overwritten value (0xFF) is dropped instead of crashing in func_80010314. */\n',
+    '    if ((int32_t)ctx->r4 < 25) {\n',
+    '        func_8001B3E4(rdram, ctx);\n',
+    '    }\n',
+    '    else {\n',
+    '        static int wcw_pending_value_logged = 0;\n',
+    '        if (!wcw_pending_value_logged) {\n',
+    '            wcw_pending_value_logged = 1;\n',
+    '            fprintf(stderr, "[wcw] dropped a pending value %d at 0x8015C8E0 (#113)\\n", (int32_t)ctx->r4);\n',
+    '        }\n',
+    '    }\n',
+]
+
 DCC4_PROBE = [
     '    { /* [nomercy][dcc4] portrait-record probe + airbag (bringup session 2): the\n',
     '         char-select crash reads s2=[[elem+0x68]+4] with s2 = 0xA2/0xB2/0xC2/0xD2\n',
@@ -321,6 +343,17 @@ def main():
             applied.append('wcw-resync-null -> funcs_10.c func_80022CEC')
     else:
         applied.append('wcw-resync-null (already present)')
+
+    # [wcw fix] #113 pending value guard (see WCW_PENDING_VALUE_GUARD above)
+    lines = load_lines('funcs_47.c')
+    if not any('aki-roadmap#113: only a value' in l for l in lines):
+        ensure_include(lines, '#113 pending value guard log')
+        rng = body_range(lines, 'func_8010DD38')
+        if replace_line(lines, rng, '    func_8001B3E4(rdram, ctx);', WCW_PENDING_VALUE_GUARD, 'wcw-pending-value'):
+            save_lines('funcs_47.c', lines)
+            applied.append('wcw-pending-value -> funcs_47.c func_8010DD38')
+    else:
+        applied.append('wcw-pending-value (already present)')
 
     # [wcw fix] widescreen cull (see WCW_CULL_EDIT above)
     lines = load_lines('funcs_1.c')

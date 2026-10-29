@@ -54,13 +54,13 @@
  "base": "0x80400000",
  "end": "0x80416874",
  "size": 92276,
- "limit": 3932160,
+ "limit": 3701760,
  "offsets": "from model.bin's byte 0 (the AKP1 header is bytes 0-63; base is where byte 0 was laid out)",
  "pointers": "physical (base - 0x80000000) in every G_VTX and G_SETTIMG; relocations lists their offsets",
  "model_height": 3.0072,
- "aki_scale": 71.34351,
- "aki_height": 214.54,
- "final_height": 212,
+ "aki_scale": 35.023395,
+ "aki_height": 105.32,
+ "final_height": 180,
  "ground": {
   "floor": -82.0,
   "lowest": -82,
@@ -69,13 +69,16 @@
    "foot_r": -82
   },
   "lowered_feet": {
-   "foot_l": 6.0,
-   "foot_r": 6.0
+   "foot_l": 7.0,
+   "foot_r": 7.0
   }
  },
  "textures": "tiles",
  "shade": true,
  "bake_light": 1.0,
+ "bake_gain": {
+  "0": 2.099
+ },
  "texture_tiles": [
   {
    "index": 0,
@@ -98,8 +101,8 @@
    {
     "tile": 0,
     "crop": null,
-    "hash": "9fad11ce1b1c9e48",
-    "png": "9fad11ce1b1c9e48.png",
+    "hash": "e7686cf2accb52e1",
+    "png": "e7686cf2accb52e1.png",
     "tile_size": [
      32,
      32
@@ -153,6 +156,8 @@
  ],
  "unmapped_bones": [],
  "warnings": [
+  "--space model: part foot_l moved [2, -46, -1] units onto the game's joint (facing -z, or a very different build?)",
+  "--space model: part foot_r moved [-2, -46, -1] units onto the game's joint (facing -z, or a very different build?)",
   "texture 0 (1024x1024) has more than 16 colours: --quantize would keep more of it as CI4",
   "texture 0 is 1024x1024: used as 32x32 (RGBA16 tiles: power-of-two sides, at most 2048 texels; TMEM is 4 KB)"
  ],

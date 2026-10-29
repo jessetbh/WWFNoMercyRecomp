@@ -742,6 +742,19 @@ class Unresolved(Exception):
     pass
 
 
+def phys_data_address(amap, a, ctx=None):
+    """Whether a physical (segment 0) value built by a %hi/%lo pair is a RAM address worth translating: its KSEG0 form
+    lies in the data of the overlay whose code builds it (aki-roadmap#120: 9 Underground's ovl_a title code builds
+    `lui s6,0x000C; addiu s6,0x3E08`, rev 1's address of a triangle list in ovl_a data, for a G_DL).
+    - Text doesn't count: plain numbers built with lui (0x000C0000 fixed point, sizes) would land there.
+    - Main doesn't count: main's low values are ROM offsets into the hack's assets (0x39500, 7f84321), which read as
+      main-data addresses too."""
+    if ctx not in amap.ovl:
+        return False
+    r = amap._find(amap.ovl[ctx], (a & 0x1FFFFFFF) | 0x80000000)
+    return bool(r) and r[1] == 'data'
+
+
 def rewrite(words, hack_pc, new_pc, candidates, stock_words=None, problems=None, init=None):
     """Rewrite one function's absolute addresses from hack to stock space.
     words: the hack's words (at hack_pc); new_pc: where the result will live; candidates(a) ->
@@ -755,6 +768,7 @@ def rewrite(words, hack_pc, new_pc, candidates, stock_words=None, problems=None,
     n = len(words)
     lo_pc, hi_pc = hack_pc, hack_pc + 4 * n
     has_stock = stock_words is not None
+    phys_ok = getattr(candidates, 'phys_ok', None)   # see phys_data_address
     same = lambda idx: has_stock and all(words[i] == stock_words[i] for i in idx)
 
     def cands(a, ram_only=True):
@@ -839,6 +853,10 @@ def rewrite(words, hack_pc, new_pc, candidates, stock_words=None, problems=None,
                         break
             if pick is None:
                 ram = [c for c in cs if c >= 0x80000000] if a >= 0x80000000 else []
+                if not ram and phys_ok is not None and a < 0x00800000 and (a & 0xFFFF) and phys_ok(a):
+                    # a physical address built in code, such as a display list's G_DL target (aki-roadmap#120). Looked up
+                    # as KSEG0: candidates() reads a low value inside the hack's asset range as a ROM offset (7f84321).
+                    ram = [c & 0x1FFFFFFF for c in cands(a | 0x80000000, ram_only=False) if c >= 0x80000000]
                 pick = ram[0] if ram else None
             if pick is None:
                 if 0x80000000 <= a < 0x80800000 and problems is not None:
@@ -1000,6 +1018,7 @@ def port_code(A):
         stock = A.byname[name]
         ctx = A.ctx_of_hack(name)
         tr = lambda a, ctx=ctx: A.map.candidates(a, ctx)
+        tr.phys_ok = lambda a, ctx=ctx: phys_data_address(A.map, a, ctx)
         zones = keep_stock_zones(A, name)
         for s, h, z in units:
             if any(lo <= s and s + z <= hi for lo, hi in zones):

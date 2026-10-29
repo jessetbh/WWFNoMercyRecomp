@@ -445,6 +445,48 @@ class InstructionPatchTests(unittest.TestCase):
         self.assertEqual(self.run_patch('changed', NOP), (0, NOP))
 
 
+class PhysicalPairTests(unittest.TestCase):
+    """aki-roadmap#120: 9 Underground's title code builds a G_DL target as a physical address,
+    `lui s6,0x000C; addiu s6,s6,0x3E08` (rev 1's place of a triangle list in ovl_a data, 0x110 past stock's).
+    Left as it was, the display list called texture bytes and the title drew nothing."""
+    S6 = 22
+
+    def amap(self):
+        m = d.AddressMap()
+        m.main = [(0x80000400, 0x80029C50, 0, 'text'),
+                  (0x80029C50, 0x80062090, (-0x70) & 0xFFFFFFFF, 'data')]
+        m.ovl = {'ovl_a': [(0x80090000, 0x800C3CD0, 0, 'text'),
+                           (0x800C3CD0, 0x800D7F30, (-0x110) & 0xFFFFFFFF, 'data')]}
+        m.finish()
+        return m
+
+    def run_rewrite(self, hi, lo, with_check=True, ctx='ovl_a'):
+        m = self.amap()
+        cand = lambda a: m.candidates(a, ctx)
+        if with_check:
+            cand.phys_ok = lambda a: d.phys_data_address(m, a, ctx)
+        words = [lui(self.S6, hi), addiu(self.S6, self.S6, lo), jr(RA), NOP]
+        return d.rewrite(words, 0x80090160, 0x80090160, cand)
+
+    def test_main_code_keeps_its_low_values(self):
+        # main builds ROM offsets into the hack's assets (0x00039500): they read as main-data addresses, never translated
+        out = self.run_rewrite(0x0004, 0x9500, ctx=None)
+        self.assertEqual((out[0] & 0xFFFF, out[1] & 0xFFFF), (0x0004, 0x9500))
+
+    def test_a_physical_address_into_data_is_translated(self):
+        out = self.run_rewrite(0x000C, 0x3E08)
+        self.assertEqual(out[0] & 0xFFFF, 0x000C)
+        self.assertEqual(out[1] & 0xFFFF, 0x3CF8)
+
+    def test_only_when_the_caller_opts_in(self):
+        self.assertEqual(self.run_rewrite(0x000C, 0x3E08, with_check=False)[1] & 0xFFFF, 0x3E08)
+
+    def test_a_number_that_lands_in_text_is_left_alone(self):
+        # 0x000A0164 as KSEG0 is ovl_a text: a constant, not a data address
+        out = self.run_rewrite(0x000A, 0x0164)
+        self.assertEqual((out[0] & 0xFFFF, out[1] & 0xFFFF), (0x000A, 0x0164))
+
+
 class LikelyDelaySlotTests(unittest.TestCase):
     """aki-roadmap#120: a register write in a branch-likely's delay slot happens only on the taken path, so the
     fall-through %lo still pairs with the lui before it (9 Underground func_80099238 at 0x80099644..58)."""

@@ -77,7 +77,7 @@
  "shade": true,
  "bake_light": 1.0,
  "bake_gain": {
-  "0": 2.278
+  "0": 2.25
  },
  "width_fit": {
   "forearm_l": [
@@ -139,8 +139,8 @@
    {
     "tile": 0,
     "crop": null,
-    "hash": "62e3add256584f41",
-    "png": "62e3add256584f41.png",
+    "hash": "dbfd63cdc0684e98",
+    "png": "dbfd63cdc0684e98.png",
     "tile_size": [
      32,
      32

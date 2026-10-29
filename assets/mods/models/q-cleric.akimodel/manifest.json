@@ -135,8 +135,8 @@
    {
     "tile": 0,
     "crop": null,
-    "hash": "7348258740c6d656",
-    "png": "7348258740c6d656.png",
+    "hash": "b9f11d946e32a205",
+    "png": "b9f11d946e32a205.png",
     "tile_size": [
      32,
      32
@@ -193,7 +193,7 @@
   "--space model: part foot_l moved [2, -45, -1] units onto the game's joint (facing -z, or a very different build?)",
   "--space model: part foot_r moved [-1, -45, -1] units onto the game's joint (facing -z, or a very different build?)",
   "shin_l, shin_r, upperarm_l, upperarm_r: much thinner than the stock wrestlers', widened 1.8x (the most --width-fit does): check the pack in game",
-  "texture 0: the bake keeps 87% of its brightness (lift capped at 2.5)",
+  "texture 0: the bake keeps 87% of its brightness (near-white or saturated bright colours, or the lift cap of 2.5)",
   "texture 0 (1024x1024) has more than 16 colours: --quantize would keep more of it as CI4",
   "texture 0 is 1024x1024: used as 32x32 (RGBA16 tiles: power-of-two sides, at most 2048 texels; TMEM is 4 KB)"
  ],

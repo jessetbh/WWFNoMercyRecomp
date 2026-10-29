@@ -136,8 +136,8 @@
    {
     "tile": 0,
     "crop": null,
-    "hash": "b3bacc6880c7ae80",
-    "png": "b3bacc6880c7ae80.png",
+    "hash": "7a50440bc220c481",
+    "png": "7a50440bc220c481.png",
     "tile_size": [
      32,
      32
@@ -192,7 +192,7 @@
  "unmapped_bones": [],
  "warnings": [
   "forearm_r: much thinner than the stock wrestlers', widened 1.8x (the most --width-fit does): check the pack in game",
-  "texture 0: the bake keeps 75% of its brightness (lift capped at 2.5)"
+  "texture 0: the bake keeps 65% of its brightness (near-white or saturated bright colours, or the lift cap of 2.5)"
  ],
  "relocations": [
   64316,

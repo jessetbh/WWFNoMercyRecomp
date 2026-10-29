@@ -159,7 +159,7 @@
   "--space model: part foot_l moved [-4, -53, 5] units onto the game's joint (facing -z, or a very different build?)",
   "--space model: part foot_r moved [4, -53, 5] units onto the game's joint (facing -z, or a very different build?)",
   "shin_l, shin_r, thigh_l, thigh_r, upperarm_l, upperarm_r: much thinner than the stock wrestlers', widened 1.8x (the most --width-fit does): check the pack in game",
-  "vertex colours: the bake keeps 80% of their brightness (lift capped at 2.5)"
+  "vertex colours: the bake keeps 74% of their brightness (near-white or saturated bright colours, or the lift cap of 2.5)"
  ],
  "relocations": [
   51380,

@@ -216,6 +216,25 @@ class TraceTests(unittest.TestCase):
         self.assertEqual(end, 0x8040001C)
 
 
+class CaveBlockTests(unittest.TestCase):
+    def test_far_caves_get_their_own_blocks(self):
+        # Revenge Starrcade 2.0: two cave clusters ~48 KB apart, main's tables between them (aki-roadmap#119)
+        caves = [(0x8003A8E8, 0x8003A92C), (0x8002EB04, 0x8002EB8C), (0x8002EB8C, 0x8002EC20), (0x8003AF00, 0x8003AF0C)]
+        self.assertEqual(d.cave_blocks(caves), [(0x8002EB04, 0x8002EC20), (0x8003A8E8, 0x8003A92C), (0x8003AF00, 0x8003AF0C)])
+
+    def test_back_to_back_and_overlapping_caves_share_a_block(self):
+        caves = [(0x80030000, 0x80030040), (0x80030048, 0x80030080), (0x80030010, 0x80030020)]
+        self.assertEqual(d.cave_blocks(caves), [(0x80030000, 0x80030080)])
+
+    def test_gap_boundary(self):
+        self.assertEqual(d.cave_blocks([(0x80030000, 0x80030010), (0x80030020, 0x80030030)]), [(0x80030000, 0x80030030)])
+        self.assertEqual(d.cave_blocks([(0x80030000, 0x80030010), (0x80030024, 0x80030030)]),
+                         [(0x80030000, 0x80030010), (0x80030024, 0x80030030)])
+
+    def test_no_caves(self):
+        self.assertEqual(d.cave_blocks([]), [])
+
+
 class PlausibleTests(unittest.TestCase):
     def test_code_is_plausible_and_text_is_not(self):
         self.assertTrue(mips.plausible_entry([addiu(AT, 0, 1), lui(V0, 0x8015), addu(V0, V0, A0), jr(RA), NOP]))

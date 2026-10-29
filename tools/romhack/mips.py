@@ -60,6 +60,13 @@ def branch_target(w, pc):
     return None
 
 
+def is_likely_branch(w):
+    """A branch-likely (beql bnel blezl bgtzl, bltzl bgezl bltzall bgezall, bc1fl bc1tl): its delay slot runs only
+    when the branch is taken."""
+    op, rs, rt = w >> 26, (w >> 21) & 31, (w >> 16) & 31
+    return op in (0x14, 0x15, 0x16, 0x17) or (op == 0x01 and rt in (0x02, 0x03, 0x12, 0x13)) or         (op == 0x11 and rs == 0x08 and rt & 2)
+
+
 def gpr_written(w):
     """The GPR an instruction writes (None if none or r0)."""
     op = w >> 26
@@ -104,8 +111,11 @@ def hilo_refs(words, base_pc=0, init=None, final_state=None):
             clobber_after = None
         op = w >> 26
         rs, rt, rd = (w >> 21) & 31, (w >> 16) & 31, (w >> 11) & 31
+        # the delay slot of a branch-likely runs only on the taken path; the scan follows the fall-through, where
+        # its register write never happens (9 Underground's bc1tl / lw v0 between a lui and its %lo, aki-roadmap#120)
+        taken_only = i > 0 and is_likely_branch(words[i - 1])
         if op == LUI:
-            if rt:
+            if rt and not taken_only:
                 state[rt] = (i, (w & 0xFFFF) << 16)
             continue
         if (op in LO_OPS or op == 0x0D) and rs in state:      # 0x0D ori: unsigned %lo
@@ -125,7 +135,7 @@ def hilo_refs(words, base_pc=0, init=None, final_state=None):
         if op == 3 or (op == 0 and (w & 0x3F) == 0x09):
             clobber_after = i + 1
         r = gpr_written(w)
-        if r is not None and op != LUI and not (op == 3 or (op == 0 and (w & 0x3F) == 0x09)):
+        if r is not None and op != LUI and not taken_only and not (op == 3 or (op == 0 and (w & 0x3F) == 0x09)):
             state.pop(r, None)
         if op == 0 and (w & 0x3F) == 0x08 and rs == 31:       # jr ra: end of a path
             pass

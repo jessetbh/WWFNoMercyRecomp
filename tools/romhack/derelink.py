@@ -348,6 +348,7 @@ class AddressMap:
         self.evidence = {}      # overlay -> sorted hack addresses its own code references
         self.identity = [(0x80400000, 0x80800000)]
         self.rom = []           # [(hack_rom_lo, hack_rom_hi, delta)] for the code region (weak candidates)
+        self.assets = []        # [(rom_lo, rom_hi)]: the hack's assets, kept at its ROM offsets (no candidates)
 
     @staticmethod
     def _find(ranges, a):
@@ -390,6 +391,9 @@ class AddressMap:
         def add(r):
             if r is not None and r[0] not in out:
                 out.append(r[0])
+        if a < 0x00800000 and any(lo <= a < hi for lo, hi in self.assets) and \
+                not any(lo <= a < hi for lo, hi, _ in self.rom):
+            return []               # a ROM offset into the hack's assets, not a physical RAM address
         moved = self._find(self.priority, a)
         if moved:
             return [moved[0]]       # code or buffers moved out of the stock layout: no alternative
@@ -662,9 +666,20 @@ class Analysis:
                     amap.main.append((lo, hi, 0, 'heap'))
                 else:
                     amap.main.append((lo, hi, d, 'heap'))
+        # stock code blocks with a gap (World Tour's overlays sit past the assets): the hack's assets stay at
+        # its ROM offsets, so ROM offsets into them are kept and main's data ends where the hack's does
+        blocks = stock_code_blocks(self.secs)
+        if len(blocks) > 1:
+            amap.assets = between_blocks(blocks, len(self.hack))
         for name, (hrom, htext, htext_end, hdata, hend) in self.place.items():
             st = self.byname[name]
             hdata_rom_end = hrom + (self.hsecs[name].bss - htext) if self.hsecs.get(name) else hrom + (st.bss - st.text) + 0x100
+            if amap.assets and not self.hsecs.get(name):
+                rs = amap.main if name in ('main', 'entry') else amap.ovl[name]
+                ends = [(st.bss - d) & 0xFFFFFFFF for lo, hi, d, kind in rs
+                        if kind != 'exp' and lo <= (st.bss - d) & 0xFFFFFFFF <= hi]
+                if ends:
+                    hdata_rom_end = hrom + (ends[0] - htext)
             # ROM offsets inside a section translate like its RAM addresses (weak candidates)
             rs = amap.main if name in ('main', 'entry') else amap.ovl[name]
             for lo, hi, d, kind in rs:
@@ -727,6 +742,19 @@ class Unresolved(Exception):
     pass
 
 
+def phys_data_address(amap, a, ctx=None):
+    """Whether a physical (segment 0) value built by a %hi/%lo pair is a RAM address worth translating: its KSEG0 form
+    lies in the data of the overlay whose code builds it (aki-roadmap#120: 9 Underground's ovl_a title code builds
+    `lui s6,0x000C; addiu s6,0x3E08`, rev 1's address of a triangle list in ovl_a data, for a G_DL).
+    - Text doesn't count: plain numbers built with lui (0x000C0000 fixed point, sizes) would land there.
+    - Main doesn't count: main's low values are ROM offsets into the hack's assets (0x39500, 7f84321), which read as
+      main-data addresses too."""
+    if ctx not in amap.ovl:
+        return False
+    r = amap._find(amap.ovl[ctx], (a & 0x1FFFFFFF) | 0x80000000)
+    return bool(r) and r[1] == 'data'
+
+
 def rewrite(words, hack_pc, new_pc, candidates, stock_words=None, problems=None, init=None):
     """Rewrite one function's absolute addresses from hack to stock space.
     words: the hack's words (at hack_pc); new_pc: where the result will live; candidates(a) ->
@@ -740,6 +768,7 @@ def rewrite(words, hack_pc, new_pc, candidates, stock_words=None, problems=None,
     n = len(words)
     lo_pc, hi_pc = hack_pc, hack_pc + 4 * n
     has_stock = stock_words is not None
+    phys_ok = getattr(candidates, 'phys_ok', None)   # see phys_data_address
     same = lambda idx: has_stock and all(words[i] == stock_words[i] for i in idx)
 
     def cands(a, ram_only=True):
@@ -824,6 +853,10 @@ def rewrite(words, hack_pc, new_pc, candidates, stock_words=None, problems=None,
                         break
             if pick is None:
                 ram = [c for c in cs if c >= 0x80000000] if a >= 0x80000000 else []
+                if not ram and phys_ok is not None and a < 0x00800000 and (a & 0xFFFF) and phys_ok(a):
+                    # a physical address built in code, such as a display list's G_DL target (aki-roadmap#120). Looked up
+                    # as KSEG0: candidates() reads a low value inside the hack's asset range as a ROM offset (7f84321).
+                    ram = [c & 0x1FFFFFFF for c in cands(a | 0x80000000, ram_only=False) if c >= 0x80000000]
                 pick = ram[0] if ram else None
             if pick is None:
                 if 0x80000000 <= a < 0x80800000 and problems is not None:
@@ -985,6 +1018,7 @@ def port_code(A):
         stock = A.byname[name]
         ctx = A.ctx_of_hack(name)
         tr = lambda a, ctx=ctx: A.map.candidates(a, ctx)
+        tr.phys_ok = lambda a, ctx=ctx: phys_data_address(A.map, a, ctx)
         zones = keep_stock_zones(A, name)
         for s, h, z in units:
             if any(lo <= s and s + z <= hi for lo, hi in zones):
@@ -1780,6 +1814,10 @@ def padding_code(A, D, sec, t, funcs):
         lo_bound = e.text
     if not lo_bound <= t < st.data or any(a <= t < b for a, b in ext):
         return None
+    if getattr(A, 'map', None) is not None and A.map.translate(t, sec) not in (None, t):
+        # the hack's code is shifted here (9 Underground, rev 1 main): the gap holds a function the runtime
+        # implements natively (World Tour's __osSiRawStartDma at 0x80023970), not hack code in padding
+        return None
     lo = max([b for a, b in ext if b <= t], default=lo_bound)
     hi = min([a for a, b in ext if a > t], default=st.data)
     get = lambda v: word(A.hack, st.rom_of(v))
@@ -2218,14 +2256,71 @@ def add_entry_logs(A, D, area, report):
         report.setdefault('entry_logs', []).append((sec, v, sv))
 
 
+CODE_BLOCK_GAP = 0x10000
+
+
+def port_instruction_patches(A, D, ports):
+    """The port's own instruction patches (its recompiler config's [[patches.instruction]], listed in the layout as
+    "instruction_patches": [[vram, value], ...]) applied to functions the hack changed: the runtime live-compiles
+    those from the ROM, so a patch only the static code has is lost. World Tour's idle thread (func_800004AC, changed
+    by 9 Underground) spins in `jal; b` without its `b .` at 0x8000058C, and native threads never preempt it.
+    A patch applies only where the word is still the stock one. Returns the patches applied."""
+    n = 0
+    for vram, value in A.layout.get('instruction_patches', []):
+        for p in ports:
+            if p.status != 'changed' or not p.stock_vram <= vram < p.stock_vram + p.size:
+                continue
+            r = A.byname[p.section].rom_of(vram)
+            if word(D, r) == word(A.base, r):
+                put_word(D, r, value)
+                n += 1
+    return n
+
+
+def stock_code_blocks(secs):
+    """ROM ranges that take the stock bytes: the header and boot code plus the sections, with sections
+    under CODE_BLOCK_GAP apart merged. Everything else keeps the hack's bytes, so its assets stay at the
+    hack's ROM offsets (World Tour keeps its overlays near the ROM end, past most of the assets)."""
+    blocks = []
+    for s in sorted(secs, key=lambda s: s.rom):
+        if blocks and s.rom - blocks[-1][1] < CODE_BLOCK_GAP:
+            blocks[-1][1] = max(blocks[-1][1], s.rom_end)
+        else:
+            blocks.append([0 if not blocks else s.rom, s.rom_end])
+    return [tuple(b) for b in blocks]
+
+
+def between_blocks(blocks, rom_size):
+    """The ROM ranges outside the stock code blocks (up to rom_size)."""
+    edges = [x for b in blocks for x in b] + [rom_size]
+    return [(edges[i], edges[i + 1]) for i in range(1, len(edges) - 1, 2) if edges[i] < edges[i + 1]]
+
+
+def stock_descriptor_rom_fields(A, D):
+    """The overlay descriptors' ROM start/end words point at the stock overlays: the patched ROM keeps them at their
+    stock offsets, but a hack on another revision lists its own (9 Underground: ovl_a at 0xA1CD06, stock 0xA21750),
+    so the port's overlay swap never recognised the DMA. Only words still holding the hack's value change."""
+    count = A.layout.get('descriptor_count', 5)
+    table = A.layout.get('descriptor_table') or find_descriptor_table(A.base, count=count)
+    stock, hack = read_descriptors(A.base, table, count), read_descriptors(A.hack, A.table, count)
+    n = 0
+    for i in range(count):
+        for k in (0, 1):
+            off = table + 4 * (DESC_WORDS * i + k)
+            if word(D, off) == hack[i][k] != stock[i][k]:
+                put_word(D, off, stock[i][k])
+                n += 1
+    return n
+
+
 def assemble(A, report):
     """The stock-layout ROM: stock code/data with the hack's changes, the hack's assets and
     payload, and the new-code area appended. Returns (rom bytes, relink manifest)."""
     discover_extra_code(A)
     ports, resized = port_code(A)
     D = bytearray(A.hack)
-    code_end = max(s.rom + (s.bss - s.text) for s in A.secs)
-    D[0:code_end] = A.base[0:code_end]
+    for lo, hi in stock_code_blocks(A.secs):
+        D[lo:hi] = A.base[lo:hi]
     keep = set(getattr(A, 'experiment_stock_ports', ()))
     for p in ports:
         if p.status == 'changed' and p.stock_vram in keep:
@@ -2236,7 +2331,9 @@ def assemble(A, report):
                 put_word(D, r + 4 * i, w)
     report['ports'] = ports
     report['resized'] = resized
+    report['instruction_patches'] = port_instruction_patches(A, D, ports)
     translate_data(A, D, report)
+    report['descriptor_rom_fields'] = stock_descriptor_rom_fields(A, D)
     keep_caves_in_place(A, D, report)
     resized_redirects(A, D, report)
     payload_fixups(A, D, report)

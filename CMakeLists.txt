@@ -161,6 +161,7 @@ set(SOURCES
     ${REPAIRED_CPP}
     ${CMAKE_SOURCE_DIR}/src/game/recomp_api.cpp
     ${CMAKE_SOURCE_DIR}/src/game/raytracing.cpp
+    ${CMAKE_SOURCE_DIR}/src/game/entry_prologues.cpp
     ${CMAKE_SOURCE_DIR}/src/ra/ra_client.cpp
     ${CMAKE_SOURCE_DIR}/rsp/nomercy_audio.cpp
 )

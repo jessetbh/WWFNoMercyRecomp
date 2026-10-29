@@ -645,6 +645,7 @@ static void wcw_setup_logging(bool show_console) {
 
 // Generated from RecompiledFuncs/repaired_functions.txt (CMakeLists.txt).
 void wcw_register_repaired_functions();
+void wcw_register_entry_prologues();
 
 // Bundled mods (assets/mods/*.nrm, built in the AkiMods repo) ship in every release zip and
 // AKI Launcher install, but librecomp only scans <config>/mods. Copy each one there when it's
@@ -1062,6 +1063,8 @@ int main(int argc, char** argv) {
     // [wcw romhack] The runtime warns when a ROM-patch mod changes a function the post-recompile pipeline repaired
     // (generated from RecompiledFuncs/repaired_functions.txt; see CMakeLists).
     wcw_register_repaired_functions();
+    // [wcw fullconv] Hand-edits that survive a live recompile of their function (src/game/entry_prologues.cpp, aki-roadmap#76).
+    wcw_register_entry_prologues();
     // wcw::register_wcw_patches();  // bootstrap: no patches pipeline yet (see CMakeLists)
 
     // Register UI fonts (loaded from ./assets during render-context init). Without a primary

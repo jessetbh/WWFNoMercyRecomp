@@ -1,0 +1,18 @@
+{
+  "schema": 1,
+  "id": "q-robot",
+  "name": "Robot Expressive",
+  "author": "Tomas Laulhe (Quaternius), modified by Don McCurdy (three.js examples)",
+  "version": "1.0.0",
+  "license": "CC0-1.0",
+  "source": "https://github.com/mrdoob/three.js/tree/dev/examples/models/gltf/RobotExpressive",
+  "game": "nomercy",
+  "profile": "nomercy",
+  "suggested": {
+    "slot": 4,
+    "wrestler": null,
+    "costume": null
+  },
+  "preview": "preview.png",
+  "notes": ""
+}

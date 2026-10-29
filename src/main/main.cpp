@@ -666,7 +666,8 @@ static void install_bundled_mods(const std::filesystem::path& app_folder) {
         return std::vector<char>(std::istreambuf_iterator<char>(f), std::istreambuf_iterator<char>());
     };
     for (const auto& entry : fs::directory_iterator(src_dir, ec)) {
-        if (entry.path().extension() != ".nrm") {
+        // Mods and texture packs (the model import starter packs' HD textures are an .rtz, aki-roadmap#145).
+        if (entry.path().extension() != ".nrm" && entry.path().extension() != ".rtz") {
             continue;
         }
         const fs::path dst = dst_dir / entry.path().filename();
@@ -676,6 +677,43 @@ static void install_bundled_mods(const std::filesystem::path& app_folder) {
         fs::copy_file(entry.path(), dst, fs::copy_options::overwrite_existing, ec);
         fprintf(stderr, "[wcw] bundled mod %s: %s\n", entry.path().filename().string().c_str(),
             ec ? ec.message().c_str() : "installed");
+    }
+
+    // [wcw] The aki_modelimport starter packs (aki-roadmap#145): assets/mods/models/<id>.akimodel into the player's
+    // mods/models, each only when no folder of that name is there yet, so a pack the player edited or replaced is never
+    // overwritten. Nothing writes models.txt: a pack draws only once the player picks it.
+    const fs::path models_src = src_dir / "models";
+    if (!fs::is_directory(models_src, ec)) {
+        return;
+    }
+    const fs::path models_dst = dst_dir / "models";
+    fs::create_directories(models_dst, ec);
+    for (const auto& entry : fs::directory_iterator(models_src, ec)) {
+        const fs::path dst = models_dst / entry.path().filename();
+        std::error_code copy_ec;
+        if (entry.is_directory(copy_ec) && entry.path().extension() == ".akimodel") {
+            if (fs::exists(dst, copy_ec)) {
+                continue;
+            }
+            // Copied under a temporary name first: a start cut short mid-copy leaves no half pack behind.
+            fs::path temp = dst;
+            temp += ".installing";
+            fs::remove_all(temp, copy_ec);
+            fs::copy(entry.path(), temp, fs::copy_options::recursive, copy_ec);
+            if (!copy_ec) {
+                fs::rename(temp, dst, copy_ec);
+            }
+            if (copy_ec) {
+                fs::remove_all(temp, ec);
+            }
+            fprintf(stderr, "[wcw] bundled model pack %s: %s\n", entry.path().filename().string().c_str(),
+                copy_ec ? copy_ec.message().c_str() : "installed");
+        }
+        else if (entry.is_regular_file(copy_ec) && entry.path().filename() == "CREDITS.md") {
+            if (!fs::exists(dst, copy_ec) || read_all(dst) != read_all(entry.path())) {
+                fs::copy_file(entry.path(), dst, fs::copy_options::overwrite_existing, copy_ec);
+            }
+        }
     }
 }
 

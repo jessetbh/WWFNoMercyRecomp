@@ -1,0 +1,18 @@
+{
+  "schema": 1,
+  "id": "q-human",
+  "name": "Animated Human",
+  "author": "Quaternius (quaternius.com)",
+  "version": "1.0.0",
+  "license": "CC0-1.0",
+  "source": "https://opengameart.org/content/animated-human-low-poly",
+  "game": "nomercy",
+  "profile": "nomercy",
+  "suggested": {
+    "slot": 3,
+    "wrestler": null,
+    "costume": null
+  },
+  "preview": "preview.png",
+  "notes": ""
+}

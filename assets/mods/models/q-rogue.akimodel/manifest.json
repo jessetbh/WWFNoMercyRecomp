@@ -1,0 +1,248 @@
+{
+ "schema_version": 2,
+ "format": "AKP1",
+ "header": {
+  "magic": "AKP1",
+  "version": 2,
+  "header_size": 64,
+  "profile": "nomercy",
+  "built_base": "0x80400000",
+  "file_size": 92276,
+  "flags": 9,
+  "entries": {
+   "offset": 50784,
+   "count": 1
+  },
+  "relocations": {
+   "offset": 50792,
+   "count": 87
+  },
+  "textures": {
+   "offset": 0,
+   "count": 0
+  },
+  "required_runtime": 2,
+  "skin": {
+   "offset": 51140,
+   "count": 857
+  }
+ },
+ "tool": "aki-model",
+ "version": 1,
+ "id": "q-rogue",
+ "profile": "nomercy",
+ "game": "nomercy",
+ "name": "q-rogue",
+ "source": {
+  "file": "q-rogue.glb",
+  "sha256": "fdc4f614ff6844e011f6331123b20bff783c47dc70213324de9c8421a9e9fbba"
+ },
+ "map": "auto",
+ "parts_table": "nomercy.json (named in game)",
+ "space": "model",
+ "matrices": "segment 0xD",
+ "winding": "normals",
+ "winding_turned": 0,
+ "double_sided": true,
+ "joint_cuts": 0,
+ "skin": {
+  "vertices": 857,
+  "from": "weights",
+  "segment": "0x0E"
+ },
+ "matrices_note": "one list (parts[0]) loads each part's matrix from segment 0xD + part x 0xB8 + 0x38; the mod sets segment 0xD to the slot's part 0 node + parity x 0x40 (physical) before calling it and back to 0 after",
+ "base": "0x80400000",
+ "end": "0x80416874",
+ "size": 92276,
+ "limit": 3932160,
+ "offsets": "from model.bin's byte 0 (the AKP1 header is bytes 0-63; base is where byte 0 was laid out)",
+ "pointers": "physical (base - 0x80000000) in every G_VTX and G_SETTIMG; relocations lists their offsets",
+ "model_height": 3.0072,
+ "aki_scale": 71.34351,
+ "aki_height": 214.54,
+ "final_height": 212,
+ "ground": {
+  "floor": -82.0,
+  "lowest": -82,
+  "soles": {
+   "foot_l": -82,
+   "foot_r": -82
+  },
+  "lowered_feet": {
+   "foot_l": 6.0,
+   "foot_r": 6.0
+  }
+ },
+ "textures": "tiles",
+ "shade": true,
+ "bake_light": 1.0,
+ "texture_tiles": [
+  {
+   "index": 0,
+   "offset": 64,
+   "address": "0x80400040",
+   "width": 32,
+   "height": 32,
+   "format": "RGBA16",
+   "bytes": 2048,
+   "source_size": [
+    1024,
+    1024
+   ]
+  }
+ ],
+ "texture_pack": {
+  "rtz": "q-rogue-hd.rtz",
+  "hash_version": 5,
+  "tiles": [
+   {
+    "tile": 0,
+    "crop": null,
+    "hash": "9fad11ce1b1c9e48",
+    "png": "9fad11ce1b1c9e48.png",
+    "tile_size": [
+     32,
+     32
+    ],
+    "png_size": [
+     1024,
+     1024
+    ]
+   }
+  ],
+  "install": "copy q-rogue-hd.rtz into the game's mods folder (a texture pack, switched in the Mods menu)"
+ },
+ "filter": "bilinear",
+ "render_state": "each list clears G_LIGHTING, and per texture group sets the texture LUT (G_TT_RGBA16 for CI4 tiles, with their palette loaded into TMEM 256; G_TT_NONE for RGBA16), loads its tile into TMEM (tile 7 load, tile 0 render), sets G_TEXTURE and the combiner (TEXEL0 x SHADE, or SHADE untextured). The mod sets, before the lists: 1-cycle, G_TP_PERSP, G_TC_FILT, G_TL_TILE, G_TD_CLAMP, G_CK_NONE, the texture filter the model was built for (see filter), a render mode or alpha compare for the 1-bit alpha, geometry G_SHADE | G_SHADING_SMOOTH on and G_TEXTURE_GEN off; and after them restores what the game had (lighting, texture LUT, texture state, combiner, TMEM contents)",
+ "preview": "preview.png",
+ "triangles": 1658,
+ "vertices": 2284,
+ "parts": [
+  {
+   "index": null,
+   "part": "model",
+   "frame_bone": null,
+   "bones": [],
+   "vertex_offset": 2112,
+   "dl_offset": 38656,
+   "dl_address": "0x80409700",
+   "dl_bytes": 12128,
+   "vertex_count": 2284,
+   "triangle_count": 1658,
+   "chunks": 73,
+   "matrix_parts": [
+    1,
+    2,
+    3,
+    5,
+    6,
+    7,
+    8,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    18,
+    19
+   ],
+   "matrix_loads": 220
+  }
+ ],
+ "unmapped_bones": [],
+ "warnings": [
+  "texture 0 (1024x1024) has more than 16 colours: --quantize would keep more of it as CI4",
+  "texture 0 is 1024x1024: used as 32x32 (RGBA16 tiles: power-of-two sides, at most 2048 texels; TMEM is 4 KB)"
+ ],
+ "relocations": [
+  38684,
+  38796,
+  39004,
+  39124,
+  39292,
+  39428,
+  39556,
+  39676,
+  39804,
+  39908,
+  40028,
+  40180,
+  40284,
+  40412,
+  40548,
+  40740,
+  40940,
+  41148,
+  41348,
+  41556,
+  41740,
+  41884,
+  42012,
+  42124,
+  42252,
+  42388,
+  42508,
+  42628,
+  42756,
+  42948,
+  43132,
+  43252,
+  43428,
+  43604,
+  43652,
+  43796,
+  43972,
+  44140,
+  44364,
+  44412,
+  44596,
+  44788,
+  44836,
+  44940,
+  45060,
+  45108,
+  45268,
+  45316,
+  45468,
+  45644,
+  45756,
+  45876,
+  45924,
+  46028,
+  46140,
+  46332,
+  46516,
+  46716,
+  46892,
+  47116,
+  47260,
+  47428,
+  47588,
+  47660,
+  47764,
+  47980,
+  48028,
+  48212,
+  48404,
+  48452,
+  48556,
+  48676,
+  48724,
+  48884,
+  48932,
+  49092,
+  49268,
+  49468,
+  49516,
+  49684,
+  49732,
+  49876,
+  49996,
+  50140,
+  50188,
+  50348,
+  50556
+ ]
+}

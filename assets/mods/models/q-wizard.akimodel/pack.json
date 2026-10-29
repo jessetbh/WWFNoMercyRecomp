@@ -1,0 +1,18 @@
+{
+  "schema": 1,
+  "id": "q-wizard",
+  "name": "Wizard",
+  "author": "Quaternius (quaternius.com)",
+  "version": "1.0.0",
+  "license": "CC0-1.0",
+  "source": "https://opengameart.org/content/lowpoly-rpg-characters",
+  "game": "nomercy",
+  "profile": "nomercy",
+  "suggested": {
+    "slot": 2,
+    "wrestler": null,
+    "costume": null
+  },
+  "preview": "preview.png",
+  "notes": ""
+}

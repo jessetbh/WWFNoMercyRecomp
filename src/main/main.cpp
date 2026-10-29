@@ -34,6 +34,7 @@
 #include "recompinput/input_state.h"
 #include "recompinput/players.h"
 #include "librecomp/conversion.hpp"
+#include "librecomp/bundled_packs.hpp"
 #include "librecomp/game.hpp"
 #include "librecomp/rsp.hpp"
 #include "librecomp/helpers.hpp"
@@ -683,78 +684,9 @@ static void install_bundled_mods(const std::filesystem::path& app_folder) {
             copy_ec ? copy_ec.message().c_str() : "installed");
     }
 
-    // [wcw] The aki_modelimport starter packs (aki-roadmap#145): assets/mods/models/<id>.akimodel into the player's
-    // mods/models, each one once. mods/models/.bundled lists the packs installed before (one folder name per line):
-    // a listed pack is never installed again, so one the player deleted stays deleted, and a folder already there
-    // (the player's own pack of that name) is listed without being touched. Nothing writes models.txt: a pack draws
-    // only once the player picks it.
-    const fs::path models_src = src_dir / "models";
-    if (!fs::is_directory(models_src, ec)) {
-        return;
-    }
-    const fs::path models_dst = dst_dir / "models";
-    fs::create_directories(models_dst, ec);
-    const fs::path record_path = models_dst / ".bundled";
-    std::set<std::string> record;
-    {
-        std::ifstream in(record_path);
-        for (std::string line; std::getline(in, line);) {
-            while (!line.empty() && (line.back() == '\r' || line.back() == ' ')) {
-                line.pop_back();
-            }
-            if (!line.empty()) {
-                record.insert(line);
-            }
-        }
-    }
-    bool record_changed = false;
-    std::error_code walk_ec;
-    for (fs::directory_iterator it(models_src, walk_ec), end; !walk_ec && it != end; it.increment(walk_ec)) {
-        const fs::directory_entry& entry = *it;
-        const std::string name = entry.path().filename().string();
-        const fs::path dst = models_dst / entry.path().filename();
-        std::error_code copy_ec;
-        if (entry.is_directory(copy_ec) && entry.path().extension() == ".akimodel") {
-            if (record.count(name)) {
-                continue;
-            }
-            if (fs::exists(dst, copy_ec)) {
-                record.insert(name);
-                record_changed = true;
-                continue;
-            }
-            // Copied under a temporary name first: a start cut short mid-copy leaves no half pack behind.
-            fs::path temp = dst;
-            temp += ".installing";
-            fs::remove_all(temp, copy_ec);
-            copy_ec.clear();
-            fs::copy(entry.path(), temp, fs::copy_options::recursive, copy_ec);
-            if (!copy_ec) {
-                fs::rename(temp, dst, copy_ec);
-            }
-            if (copy_ec) {
-                std::error_code cleanup_ec;
-                fs::remove_all(temp, cleanup_ec);
-            }
-            else {
-                record.insert(name);
-                record_changed = true;
-            }
-            fprintf(stderr, "[wcw] bundled model pack %s: %s\n", name.c_str(),
-                copy_ec ? copy_ec.message().c_str() : "installed");
-        }
-        else if (entry.is_regular_file(copy_ec) && name == "CREDITS.md") {
-            if (!fs::exists(dst, copy_ec) || read_all(dst) != read_all(entry.path())) {
-                fs::copy_file(entry.path(), dst, fs::copy_options::overwrite_existing, copy_ec);
-            }
-        }
-    }
-    if (record_changed) {
-        std::ofstream out(record_path, std::ios::trunc);
-        for (const std::string& name : record) {
-            out << name << "\n";
-        }
-    }
+    // [wcw] The aki_modelimport starter packs (aki-roadmap#145, #149): installed once into mods/models, a newer bundled
+    // version replaces an older copy the player hasn't edited; the rules are librecomp's (bundled_packs.hpp).
+    recomp::mods::bundled_packs::install(src_dir / "models", dst_dir / "models");
 }
 
 // Right-stick access for mods (AkiMods camera). The N64 has no right stick; by default it

@@ -79,6 +79,36 @@
  "bake_gain": {
   "vertex": 2.5
  },
+ "width_fit": {
+  "shin_l": [
+   1.8,
+   1.8
+  ],
+  "shin_r": [
+   1.8,
+   1.8
+  ],
+  "thigh_l": [
+   1.8,
+   1.8
+  ],
+  "thigh_r": [
+   1.8,
+   1.8
+  ],
+  "upperarm_l": [
+   1.8,
+   1.8
+  ],
+  "upperarm_r": [
+   1.8,
+   1.8
+  ]
+ },
+ "head_fit": [
+  0.6,
+  0.6
+ ],
  "texture_tiles": [],
  "texture_pack": null,
  "filter": "bilinear",
@@ -128,7 +158,8 @@
   "bone 'PoleTarget.R' maps to no part (no mapped ancestor): its weight is dropped",
   "--space model: part foot_l moved [-4, -53, 5] units onto the game's joint (facing -z, or a very different build?)",
   "--space model: part foot_r moved [4, -53, 5] units onto the game's joint (facing -z, or a very different build?)",
-  "vertex colours: the bake keeps 81% of their brightness (lift capped at 2.5)"
+  "shin_l, shin_r, thigh_l, thigh_r, upperarm_l, upperarm_r: much thinner than the stock wrestlers', widened 1.8x (the most --width-fit does): check the pack in game",
+  "vertex colours: the bake keeps 80% of their brightness (lift capped at 2.5)"
  ],
  "relocations": [
   51380,

@@ -464,6 +464,19 @@ class InstructionPatchTests(unittest.TestCase):
         self.assertEqual(self.run_patch('changed', NOP), (0, NOP))
 
 
+class DisplayListWordTests(unittest.TestCase):
+    """aki-roadmap#120: a static display list in overlay data holds physical addresses after its address-taking
+    commands (9 Underground's ovl_a G_SETTIMG words kept rev 1's 0xC7B38 for stock's 0xC7A28)."""
+
+    def test_address_commands(self):
+        for w0 in (0xFD100000, 0xDE000000, 0x04000000, 0x01000000, 0xDA380003, 0xFE000000):
+            self.assertTrue(d.dl_address_word(w0), hex(w0))
+
+    def test_other_words(self):
+        for w0 in (0xE7000000, 0xB8000000, 0xF5100000, 0x3C16000C, 0x00000000):
+            self.assertFalse(d.dl_address_word(w0), hex(w0))
+
+
 class PhysicalPairTests(unittest.TestCase):
     """aki-roadmap#120: 9 Underground's title code builds a G_DL target as a physical address,
     `lui s6,0x000C; addiu s6,s6,0x3E08` (rev 1's place of a triangle list in ovl_a data, 0x110 past stock's).

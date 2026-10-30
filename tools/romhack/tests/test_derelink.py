@@ -72,6 +72,20 @@ class HiLoTests(unittest.TestCase):
         # ...while the classic in-place pair still is one
         self.assertEqual([a for hi, lo, a in mips.hilo_refs([lui(V1, 0x8017), addiu(V1, V1, 0x10)])], [0x80170010])
 
+    def test_branch_target_after_a_b_gets_the_branch_state(self):
+        # aki-roadmap#120, 9 Underground func_80091100: lui a2; addu a2, a2, s0; beq -> L; the fall-through writes a2
+        # and ends in a b; at L, lh a2, %lo(a2) pairs with the lui before the branch
+        h, l = hi_lo(0x800E62C4)
+        lh = lambda rt, imm, rs: (0x21 << 26) | (rs << 21) | (rt << 16) | (imm & 0xFFFF)
+        A2 = 6
+        words = [lui(A2, h), addu(A2, A2, S0), beq(A0, 0, 4), NOP,     # -> index 7
+                 lw(A2, 0, S0), beq(0, 0, 9), NOP,                     # fall-through clobbers a2, then b away
+                 lh(A2, l, A2)]
+        self.assertEqual([(hi, lo, a) for hi, lo, a in mips.hilo_refs(words)], [(0, 7, 0x800E62C4)])
+        # with a live fall-through that wrote a2, nothing pairs (unchanged behaviour)
+        live = words[:5] + [NOP, NOP] + words[7:]
+        self.assertEqual(mips.hilo_refs(live), [])
+
     def test_ori_is_unsigned(self):
         refs = mips.hilo_refs([lui(T0, 0x8040), ori(T0, T0, 0x9000)])
         self.assertEqual(refs[0][2], 0x80409000)

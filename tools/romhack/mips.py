@@ -1,5 +1,6 @@
 """Small MIPS (R4300) helpers for the ROM-hack tools: field decoding, address-field masking and
 %hi/%lo pairing. Pure Python, no dependencies, so the tools run on a player's machine."""
+import collections
 
 LUI = 0x0F
 # I-type opcodes whose 16-bit immediate can be the %lo half of an address.
@@ -60,6 +61,12 @@ def branch_target(w, pc):
     return None
 
 
+def ends_flow(w):
+    """j, jr or an unconditional b: control never reaches the next instruction (after the slot)."""
+    op = w >> 26
+    return op == 2 or (op == 0 and (w & 0x3F) == 0x08) or (op == 0x04 and (w >> 16) & 0x3FF == 0)
+
+
 def is_likely_branch(w):
     """A branch-likely (beql bnel blezl bgtzl, bltzl bgezl bltzall bgezall, bc1fl bc1tl): its delay slot runs only
     when the branch is taken."""
@@ -104,7 +111,26 @@ def hilo_refs(words, base_pc=0, init=None, final_state=None):
     out = []
     based = set()         # lui indices already used as a load/store base
     clobber_after = None  # a call's clobbers take effect after its delay slot
+    incoming = collections.defaultdict(list)   # forward branch target index -> register states the branches carry
+    snap_at = {}          # delay slot index -> branch target index: the state after that slot goes to the target
     for i, w in enumerate(words):
+        if i - 1 in snap_at:   # the state after a branch's delay slot is what the branch carries to its target
+            snap = dict(state)
+            if i >= 2 and is_likely_branch(words[i - 2]):
+                r = gpr_written(words[i - 1])   # the scan skipped this likely slot's write; the taken path does it
+                if r is not None:
+                    snap.pop(r, None)
+            incoming[snap_at.pop(i - 1)].append(snap)
+        t = branch_target(w, base_pc + 4 * i)
+        if t is not None and (t - base_pc) % 4 == 0 and (t - base_pc) // 4 > i + 1:
+            snap_at[i + 1] = (t - base_pc) // 4
+        if i in incoming and i >= 2 and ends_flow(words[i - 2]):
+            # nothing falls through into a branch target after a j / jr / b and its slot: the registers there are
+            # the ones every branch to it agrees on (9 Underground func_80091100: a %lo at a b's target pairs with
+            # a lui before the branch, while the fall-through path wrote that register, aki-roadmap#120)
+            states = incoming.pop(i)
+            state = {r: v for r, v in states[0].items() if all(s.get(r) == v for s in states[1:])}
+            clobber_after = None
         if clobber_after is not None and i > clobber_after:
             for r in CALL_CLOBBERS:
                 state.pop(r, None)

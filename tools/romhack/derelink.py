@@ -1538,6 +1538,16 @@ def code_spans(extras, kind):
     return [tuple(s) for s in out]
 
 
+# Display-list commands whose second word is an address (F3D/F3DEX/F3DEX2): G_VTX (0x01, 0x04), G_MTX (0x01, 0xDA),
+# G_MOVEMEM (0x03, 0xDC), G_DL (0x06, 0xDE), G_SETTIMG (0xFD), G_SETZIMG (0xFE), G_SETCIMG (0xFF).
+DL_ADDRESS_OPS = {0x01, 0x03, 0x04, 0x06, 0xDA, 0xDC, 0xDE, 0xFD, 0xFE, 0xFF}
+
+
+def dl_address_word(w0):
+    """Whether w0 is a display-list command whose next word is an address."""
+    return (w0 >> 24) in DL_ADDRESS_OPS
+
+
 def translate_data(A, D, report):
     """Copy the hack's data changes into the stock data images in D (pointers translated).
     Words equal to stock, or whose translation equals stock, keep the stock value."""
@@ -1577,6 +1587,12 @@ def translate_data(A, D, report):
                 if sw in cs:
                     continue
                 ram = [c for c in cs if c >= 0x80000000] if hw >= 0x80000000 else []
+                if not ram and hw < 0x00800000 and dl_address_word(word(A.hack, hrom + (y - 4 - htext))) and                         phys_data_address(A.map, hw, ctx):
+                    # a static display list's physical address into the overlay's own data (G_SETTIMG, G_DL, ...):
+                    # 9 Underground's logo textures (aki-roadmap#120). Translated as KSEG0, kept physical.
+                    ram = [c & 0x1FFFFFFF for c in A.map.candidates(hw | 0x80000000, ctx) if c >= 0x80000000]
+                    if sw in ram:
+                        continue
                 put_word(D, xr, ram[0] if ram else hw)
                 changed += 1
                 report.setdefault('data_changes', []).append((name, x, sw, ram[0] if ram else hw))

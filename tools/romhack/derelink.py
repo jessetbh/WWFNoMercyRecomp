@@ -456,6 +456,11 @@ class AddressMap:
         r = self.lookup(a, ctx)
         return None if r is None else r[0]
 
+    def near_data_shift(self, a, shift, ctx=None, reach=0x10000):
+        """Whether a data run of main or of the referencing overlay within `reach` of hack address a has this shift."""
+        ranges = self.main + self.ovl.get(ctx, [])
+        return any(kind == 'data' and d == shift and lo - reach < a < hi + reach for lo, hi, d, kind in ranges)
+
     def finish(self):
         self.main.sort()
         for k in self.ovl:
@@ -769,7 +774,25 @@ def rewrite(words, hack_pc, new_pc, candidates, stock_words=None, problems=None,
     lo_pc, hi_pc = hack_pc, hack_pc + 4 * n
     has_stock = stock_words is not None
     phys_ok = getattr(candidates, 'phys_ok', None)   # see phys_data_address
+    near_shift = getattr(candidates, 'near_shift', None)   # see stock_biased_base
     same = lambda idx: has_stock and all(words[i] == stock_words[i] for i in idx)
+
+    def stock_biased_base(hi, lo, a):
+        """The stock address of this %hi/%lo pair, when it is a biased table base and not a repoint.
+        A base like `table - first_id * 4` lies outside the table, often in a data run with another shift, so the run
+        at its own address gives the wrong stock value (aki-roadmap#177: BTBW's pause menu, 0x8015220C for a table at
+        0x80153520 across a run boundary, 4 entries off). The stock code holds the right value. It counts only for
+        the same two instructions, and only when its shift is that of a data run nearby: a real repoint by the hack
+        lands somewhere else, and those keep the map's reading."""
+        if near_shift is None or not has_stock or a < 0x80000000:
+            return None
+        if (words[hi] ^ stock_words[hi]) & 0xFFFF0000 or (words[lo] ^ stock_words[lo]) & 0xFFFF0000:
+            return None
+        if words[lo] >> 26 == 0x0D:
+            sa = ((stock_words[hi] & 0xFFFF) << 16) | (stock_words[lo] & 0xFFFF)
+        else:
+            sa = (((stock_words[hi] & 0xFFFF) << 16) + mips.sx16(stock_words[lo] & 0xFFFF)) & 0xFFFFFFFF
+        return sa if sa >= 0x80000000 and near_shift(a, (sa - a) & 0xFFFFFFFF) else None
 
     def cands(a, ram_only=True):
         if lo_pc <= a < hi_pc:                      # inside the function itself
@@ -851,6 +874,11 @@ def rewrite(words, hack_pc, new_pc, candidates, stock_words=None, problems=None,
                     if (stock_words[lo] & 0xFFFF) == l16 and (stock_words[hi] & 0xFFFF) == h16:
                         pick = c
                         break
+                if pick is None:
+                    pick = stock_biased_base(hi, lo, a)
+                    if pick is not None:
+                        cs = [pick] + cs
+                        all_cands[lo] = cs
             if pick is None:
                 ram = [c for c in cs if c >= 0x80000000] if a >= 0x80000000 else []
                 if not ram and phys_ok is not None and a < 0x00800000 and (a & 0xFFFF) and phys_ok(a):
@@ -1019,6 +1047,7 @@ def port_code(A):
         ctx = A.ctx_of_hack(name)
         tr = lambda a, ctx=ctx: A.map.candidates(a, ctx)
         tr.phys_ok = lambda a, ctx=ctx: phys_data_address(A.map, a, ctx)
+        tr.near_shift = lambda a, shift, ctx=ctx: A.map.near_data_shift(a, shift, ctx)
         zones = keep_stock_zones(A, name)
         for s, h, z in units:
             if any(lo <= s and s + z <= hi for lo, hi in zones):

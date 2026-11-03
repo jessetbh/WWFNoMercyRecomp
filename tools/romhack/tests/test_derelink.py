@@ -147,6 +147,54 @@ class RewriteTests(unittest.TestCase):
         stock = [jal(0x8012F308 - 0x1530), NOP]
         self.assertEqual(d.rewrite(hack, 0x80001000, 0x80001000, cands, stock, []), stock)
 
+    def biased_cands(self):
+        # BTBW's runs: data at -0x1530 up to 0x80152380, then -0x1520 (the table lies in the second run)
+        m = d.AddressMap()
+        m.ovl = {'ovl_e': [(0x80145BA0, 0x80152380, (-0x1530) & 0xFFFFFFFF, 'data'),
+                           (0x80152380, 0x8016CF10, (-0x1520) & 0xFFFFFFFF, 'data')]}
+        m.finish()
+        cands = lambda a: m.candidates(a, 'ovl_e')
+        cands.near_shift = lambda a, shift: m.near_data_shift(a, shift, 'ovl_e')
+        return cands
+
+    def test_biased_table_base_takes_the_stock_address(self):
+        # aki-roadmap#177: `table - 0x4C5 * 4` lies below the run boundary, the table above it. The run at the base's
+        # own address (-0x1530) leaves every lookup 4 entries off; the stock code has the right value (-0x1520).
+        hh, hl = hi_lo(0x8015220C)
+        sh, sl = hi_lo(0x80150CEC)
+        hack = [lui(V0, hh), addiu(V0, V0, hl), addu(A1, A1, V0)]
+        stock = [lui(V0, sh), addiu(V0, V0, sl), addu(A1, A1, V0)]
+        self.assertEqual(d.rewrite(hack, 0x800DA630, 0x800DA630, self.biased_cands(), stock, []), stock)
+
+    def test_repoint_to_another_variable_keeps_the_map(self):
+        # The hack points the same instructions at another variable: the stock value's shift (-0x2200) is no data run.
+        hh, hl = hi_lo(0x8015220C)
+        sh, sl = hi_lo(0x8015220C - 0x2200)
+        hack = [lui(V0, hh), addiu(V0, V0, hl), addu(A1, A1, V0)]
+        stock = [lui(V0, sh), addiu(V0, V0, sl), addu(A1, A1, V0)]
+        out = d.rewrite(hack, 0x800DA630, 0x800DA630, self.biased_cands(), stock, [])
+        self.assertEqual(mips.hilo_refs(out)[0][2], 0x8015220C - 0x1530)
+
+    def test_biased_base_needs_the_same_instructions(self):
+        # Same shift, but the stock code at this spot uses another register: not the same reference.
+        hh, hl = hi_lo(0x8015220C)
+        sh, sl = hi_lo(0x80150CEC)
+        hack = [lui(V0, hh), addiu(V0, V0, hl)]
+        stock = [lui(V1, sh), addiu(V1, V1, sl)]
+        out = d.rewrite(hack, 0x800DA630, 0x800DA630, self.biased_cands(), stock, [])
+        self.assertEqual(mips.hilo_refs(out)[0][2], 0x8015220C - 0x1530)
+
+    def test_near_data_shift_needs_a_nearby_data_run(self):
+        m = d.AddressMap()
+        m.main = [(0x80040000, 0x80050000, (-0xA0) & 0xFFFFFFFF, 'text'), (0x80060000, 0x80070000, (-0x28) & 0xFFFFFFFF, 'data')]
+        m.ovl = {'ovl_e': [(0x80150000, 0x80160000, (-0x1520) & 0xFFFFFFFF, 'data')]}
+        m.finish()
+        self.assertTrue(m.near_data_shift(0x8015FFFF, (-0x1520) & 0xFFFFFFFF, 'ovl_e'))
+        self.assertTrue(m.near_data_shift(0x8005F000, (-0x28) & 0xFFFFFFFF, 'ovl_e'))     # main counts for every section
+        self.assertFalse(m.near_data_shift(0x8015FFFF, (-0x1520) & 0xFFFFFFFF, 'ovl_b'))  # another overlay's run
+        self.assertFalse(m.near_data_shift(0x80048000, (-0xA0) & 0xFFFFFFFF, None))       # text
+        self.assertFalse(m.near_data_shift(0x80170000, (-0x1520) & 0xFFFFFFFF, 'ovl_e'))  # exactly at the reach
+
     def test_lo_after_return_point_pairs_with_the_hooks_lui(self):
         # the hook left at = 0x8015xxxx (+index); back in the function: lw v0, 0x34FC(at); jr v0
         words = [lw(V0, 0x34FC, AT), jr(V0), NOP]

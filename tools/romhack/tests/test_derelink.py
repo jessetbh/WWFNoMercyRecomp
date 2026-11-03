@@ -190,10 +190,76 @@ class RewriteTests(unittest.TestCase):
         m.ovl = {'ovl_e': [(0x80150000, 0x80160000, (-0x1520) & 0xFFFFFFFF, 'data')]}
         m.finish()
         self.assertTrue(m.near_data_shift(0x8015FFFF, (-0x1520) & 0xFFFFFFFF, 'ovl_e'))
+        self.assertTrue(m.near_data_shift(0x8014F000, (-0x1520) & 0xFFFFFFFF, 'ovl_e'))   # below the run
         self.assertTrue(m.near_data_shift(0x8005F000, (-0x28) & 0xFFFFFFFF, 'ovl_e'))     # main counts for every section
         self.assertFalse(m.near_data_shift(0x8015FFFF, (-0x1520) & 0xFFFFFFFF, 'ovl_b'))  # another overlay's run
         self.assertFalse(m.near_data_shift(0x80048000, (-0xA0) & 0xFFFFFFFF, None))       # text
-        self.assertFalse(m.near_data_shift(0x80170000, (-0x1520) & 0xFFFFFFFF, 'ovl_e'))  # exactly at the reach
+        self.assertFalse(m.near_data_shift(0x80162000, (-0x1520) & 0xFFFFFFFF, 'ovl_e'))  # exactly at the reach, above
+        self.assertFalse(m.near_data_shift(0x8014E000, (-0x1520) & 0xFFFFFFFF, 'ovl_e'))  # exactly at the reach, below
+
+    def test_near_data_shift_never_for_a_priority_range(self):
+        m = d.AddressMap()
+        m.main = [(0x80060000, 0x80070000, (-0x28) & 0xFFFFFFFF, 'data')]
+        m.priority = [(0x80062000, 0x80063000, 0x00580000, 'save')]
+        m.finish()
+        self.assertTrue(m.near_data_shift(0x80061000, (-0x28) & 0xFFFFFFFF))
+        self.assertFalse(m.near_data_shift(0x80062800, (-0x28) & 0xFFFFFFFF))
+
+    def test_moved_save_buffer_keeps_its_new_address(self):
+        # Same instructions as stock, stock value on the run's shift, but the map moved this buffer to Expansion RAM.
+        m = d.AddressMap()
+        m.main = [(0x80060000, 0x80070000, (-0x28) & 0xFFFFFFFF, 'data')]
+        m.priority = [(0x80062000, 0x80063000, 0x00580000, 'save')]
+        m.finish()
+        cands = lambda a: m.candidates(a)
+        cands.near_shift = lambda a, shift: m.near_data_shift(a, shift)
+        hh, hl = hi_lo(0x80062800)
+        sh, sl = hi_lo(0x80062800 - 0x28)
+        out = d.rewrite([lui(V0, hh), addiu(V0, V0, hl)], 0x80001000, 0x80001000, cands,
+                        [lui(V0, sh), addiu(V0, V0, sl)], [])
+        self.assertEqual(mips.hilo_refs(out)[0][2], 0x805E2800)
+
+    def test_biased_base_only_for_a_built_address(self):
+        # A load through the pair is not a base built for indexing: the map's reading stays.
+        hh, hl = hi_lo(0x8015220C)
+        sh, sl = hi_lo(0x80150CEC)
+        out = d.rewrite([lui(V0, hh), lw(V1, hl, V0)], 0x800DA630, 0x800DA630, self.biased_cands(),
+                        [lui(V0, sh), lw(V1, sl, V0)], [])
+        self.assertEqual(mips.hilo_refs(out)[0][2], 0x8015220C - 0x1530)
+
+    def test_biased_base_stock_differs_in_one_instruction(self):
+        hh, hl = hi_lo(0x8015220C)
+        sh, sl = hi_lo(0x80150CEC)
+        hack = [lui(V0, hh), addiu(V0, V0, hl)]
+        for stock in ([lui(V1, sh), addiu(V0, V0, sl)], [lui(V0, sh), addiu(V1, V0, sl)]):
+            out = d.rewrite(hack, 0x800DA630, 0x800DA630, self.biased_cands(), stock, [])
+            self.assertEqual(mips.hilo_refs(out)[0][2], 0x8015220C - 0x1530)
+
+    def test_biased_base_with_ori_and_a_sign_extended_low_half(self):
+        # ori: the low half is unsigned; addiu with %lo >= 0x8000: the %hi half is one more
+        for build in (lambda r, h, l: [lui(r, h), ori(r, r, l)], lambda r, h, l: [lui(r, h), addiu(r, r, l)]):
+            a, st = 0x8015A00C, 0x8015A00C - 0x1520           # low half >= 0x8000 on both sides
+            if build(V0, 0, 0)[1] >> 26 == 0x0D:
+                hh, hl, sh, sl = a >> 16, a & 0xFFFF, st >> 16, st & 0xFFFF
+            else:
+                hh, hl, sh, sl = *hi_lo(a), *hi_lo(st)
+            m = d.AddressMap()
+            m.ovl = {'ovl_e': [(0x80158000, 0x8015B000, (-0x1530) & 0xFFFFFFFF, 'data'),
+                               (0x8015B000, 0x80160000, (-0x1520) & 0xFFFFFFFF, 'data')]}
+            m.finish()
+            cands = lambda x: m.candidates(x, 'ovl_e')
+            cands.near_shift = lambda x, shift: m.near_data_shift(x, shift, 'ovl_e')
+            stock = build(V0, sh, sl)
+            self.assertEqual(d.rewrite(build(V0, hh, hl), 0x800DA630, 0x800DA630, cands, stock, []), stock)
+
+    def test_biased_base_skips_an_address_inside_the_function(self):
+        # The function's own address follows its placement, whatever the stock words say.
+        a = 0x8015220C
+        hh, hl = hi_lo(a + 8)
+        sh, sl = hi_lo(a + 8 - 0x1520)
+        out = d.rewrite([lui(V0, hh), addiu(V0, V0, hl), NOP, NOP], a, 0x80150000, self.biased_cands(),
+                        [lui(V0, sh), addiu(V0, V0, sl), NOP, NOP], [])
+        self.assertEqual(mips.hilo_refs(out)[0][2], 0x80150008)
 
     def test_lo_after_return_point_pairs_with_the_hooks_lui(self):
         # the hook left at = 0x8015xxxx (+index); back in the function: lw v0, 0x34FC(at); jr v0

@@ -456,8 +456,11 @@ class AddressMap:
         r = self.lookup(a, ctx)
         return None if r is None else r[0]
 
-    def near_data_shift(self, a, shift, ctx=None, reach=0x10000):
-        """Whether a data run of main or of the referencing overlay within `reach` of hack address a has this shift."""
+    def near_data_shift(self, a, shift, ctx=None, reach=0x2000):
+        """Whether a data run of main or of the referencing overlay within `reach` of hack address a has this shift.
+        Never for an address in a priority range: what moved out of the stock layout has one answer."""
+        if self._find(self.priority, a):
+            return False
         ranges = self.main + self.ovl.get(ctx, [])
         return any(kind == 'data' and d == shift and lo - reach < a < hi + reach for lo, hi, d, kind in ranges)
 
@@ -778,13 +781,16 @@ def rewrite(words, hack_pc, new_pc, candidates, stock_words=None, problems=None,
     same = lambda idx: has_stock and all(words[i] == stock_words[i] for i in idx)
 
     def stock_biased_base(hi, lo, a):
-        """The stock address of this %hi/%lo pair, when it is a biased table base and not a repoint.
+        """The stock address of this %hi/%lo pair, when it looks like a biased table base and not a repoint.
         A base like `table - first_id * 4` lies outside the table, often in a data run with another shift, so the run
         at its own address gives the wrong stock value (aki-roadmap#177: BTBW's pause menu, 0x8015220C for a table at
-        0x80153520 across a run boundary, 4 entries off). The stock code holds the right value. It counts only for
-        the same two instructions, and only when its shift is that of a data run nearby: a real repoint by the hack
-        lands somewhere else, and those keep the map's reading."""
-        if near_shift is None or not has_stock or a < 0x80000000:
+        0x80153520 across a run boundary, 4 entries off). The stock code holds the right value. It counts only when
+        the pair builds an address (addiu/ori), both instructions match the stock ones apart from the immediate, and
+        the stock value's shift is that of a data run nearby. This assumes a repoint by the hack doesn't land exactly
+        on such a shift; a build lists every use (report 'biased_bases') so one can be checked."""
+        if near_shift is None or not has_stock or a < 0x80000000 or lo_pc <= a < hi_pc:
+            return None
+        if words[lo] >> 26 not in (0x09, 0x0D):
             return None
         if (words[hi] ^ stock_words[hi]) & 0xFFFF0000 or (words[lo] ^ stock_words[lo]) & 0xFFFF0000:
             return None
@@ -1042,12 +1048,18 @@ def port_code(A):
     status: 'moved' (translated hack == stock: keep the static code), 'changed' (ported in place).
     Stretches of code the hack resized are listed in A.resized and keep the stock code."""
     ports = []
+    A.biased_bases = []      # (section, hack address, stock address): see rewrite's stock_biased_base
     for name, units in A.units.items():
         stock = A.byname[name]
         ctx = A.ctx_of_hack(name)
         tr = lambda a, ctx=ctx: A.map.candidates(a, ctx)
         tr.phys_ok = lambda a, ctx=ctx: phys_data_address(A.map, a, ctx)
-        tr.near_shift = lambda a, shift, ctx=ctx: A.map.near_data_shift(a, shift, ctx)
+        def near_shift(a, shift, ctx=ctx, name=name):
+            ok = A.map.near_data_shift(a, shift, ctx)
+            if ok:
+                A.biased_bases.append((name, a, (a + shift) & 0xFFFFFFFF))
+            return ok
+        tr.near_shift = near_shift
         zones = keep_stock_zones(A, name)
         for s, h, z in units:
             if any(lo <= s and s + z <= hi for lo, hi in zones):
@@ -2558,6 +2570,8 @@ def summarize(A, report):
     if getattr(A, 'moved_resized', None):
         lines.append('resized overlay code moved whole: %d stretch(es), %d stock function(s) redirected' % (
             len(A.moved_resized), report.get('resized_redirects', 0)))
+    for name, a, st in sorted(set(getattr(A, 'biased_bases', []))):
+        lines.append('biased table base taken from stock: %s %08X -> %08X' % (name, a, st))
     k = collections.Counter(x.kind for x in A.extras)
     lines.append('extra functions: %d payload, %d cave, %d reshaped, %d mid-function return points' % (k['payload'], k['cave'], k['reshaped'], k['mid']))
     lines.append('data words changed: %d; payload pointers translated: %d' % (report['data_words_changed'], report.get('payload_pointers_translated', 0)))

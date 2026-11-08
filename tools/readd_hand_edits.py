@@ -90,6 +90,8 @@ WCW_MATRIX_DECLS = [
     'extern void wcw_interp_invalidate_local_matrix(uint32_t destAddr);\n',
 ]
 
+# src/game/entry_prologues.cpp repeats WCW_MATRIX_HOOK and the RT camera latch as func_80001E08's entry prologue
+# (aki-roadmap#76): change them together.
 WCW_MATRIX_HOOK = [
     '    { /* [wcw fix] 60Hz: func_80001E08 is a 4x4 multiply (out = A * B). When B is the camera\n',
     "         matrix (0x80062BA8), pass A (the object's camera-independent matrix) and B to RT64,\n",

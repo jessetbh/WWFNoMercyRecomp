@@ -143,9 +143,9 @@ jobs:
       - name: Assert no stray files in package
         run: |
           # assets/rt_lights.json is the ray tracing venue light presets: shipped on purpose, not a stray config.
-          # assets/mods/models/ holds the bundled CC0 starter model packs (manifest.json, pack.json, bundled-history.json): shipped on purpose too.
+          # assets/mods/models/ holds the bundled CC0 starter model packs (manifest.json, pack.json, bundled-history.json): shipped on purpose too. Only .json is exempt there, so a stray ROM under models\ still fails.
           $stray = @(Get-ChildItem -Recurse package -Include *.z64,*.n64,*.v64,*.json,*.json.bak,*.map,*.pdb,*.log |
-            Where-Object { $_.FullName -notlike '*\package\assets\rt_lights.json' -and $_.FullName -notlike '*\package\assets\mods\models\*' })
+            Where-Object { $_.FullName -notlike '*\package\assets\rt_lights.json' -and -not ($_.FullName -like '*\package\assets\mods\models\*' -and $_.Extension -eq '.json') })
           $stray += @(Get-ChildItem -Recurse -Directory package -Filter saves)
           if ($stray) { $stray | ForEach-Object { Write-Host "STRAY: $($_.FullName)" }; exit 1 }
           Write-Host "package is clean"

@@ -90,6 +90,8 @@ WCW_MATRIX_DECLS = [
     'extern void wcw_interp_invalidate_local_matrix(uint32_t destAddr);\n',
 ]
 
+# src/game/entry_prologues.cpp repeats WCW_MATRIX_HOOK and the RT camera latch as func_80001E08's entry prologue
+# (aki-roadmap#76): change them together.
 WCW_MATRIX_HOOK = [
     '    { /* [wcw fix] 60Hz: func_80001E08 is a 4x4 multiply (out = A * B). When B is the camera\n',
     "         matrix (0x80062BA8), pass A (the object's camera-independent matrix) and B to RT64,\n",
@@ -127,6 +129,46 @@ WCW_RESYNC_NULL_GUARD = [
     '       call instead of writing through it. */\n',
     '    if (ctx->r4 != 0) {\n',
     '        func_80021B10(rdram, ctx);\n',
+    '    }\n',
+]
+
+# [wcw fix] aki-roadmap#113: func_8010DC70 always stores its new value to 0x8015C8E0 (the store is in a branch
+# delay slot) but only sets the pending flag 0x8015CCD4 when the value is valid (< 25). A second call with 0xFF before
+# the polled consumer func_8010DD38 runs leaves the flag set over an invalid value; func_8001B3E4 then indexes its
+# 15-entry tables with value - 10 = 245 and func_80010314 walks a NULL array. On console the consumer runs between the
+# two calls; on the port a slower render thread (WCW_RICE_LOG) lets it slip. The game's own test for a valid value is
+# < 25 (func_8010DC70; func_8001B3E4 takes 0..9 down another path and indexes the tables with 10..24), so
+# func_8001B3E4 returns at once for anything else (the consumer still clears the flag after the call, as before).
+# The guard sits at func_8001B3E4's entry, not around the call in func_8010DD38: Lucha Underground's patch changes
+# func_8010DD38, and a function a hack changes is recompiled from the patch without hand-edits (aki-roadmap#261).
+# No catalog conversion changes func_8001B3E4, and 25 or more overruns its tables whoever calls it. It reads a0 as a
+# signed halfword (sll/sra 16), so the guard does too. Never hook func_8001B3E4 from a mod.
+WCW_PENDING_VALUE_GUARD = [
+    '    /* [wcw fix] aki-roadmap#113: only a value below 25 is valid here (the game\'s own test); a pending flag\n',
+    '       left set over an overwritten value (0xFF) is dropped instead of crashing in func_80010314. */\n',
+    '    if ((int32_t)(int16_t)ctx->r4 >= 25) {\n',
+    '        static int wcw_pending_value_logged = 0;\n',
+    '        if (!wcw_pending_value_logged) {\n',
+    '            wcw_pending_value_logged = 1;\n',
+    '            fprintf(stderr, "[wcw] dropped a pending value %d at 0x8015C8E0 (#113)\\n", (int32_t)(int16_t)ctx->r4);\n',
+    '        }\n',
+    '        return; /* nothing executed yet: the stack frame is set up after this */\n',
+    '    }\n',
+]
+
+# The guard's older site in func_8010DD38 (it replaced the call to func_8001B3E4): main() puts the plain call back.
+WCW_PENDING_VALUE_OLD = [
+    '    /* [wcw fix] aki-roadmap#113: only a value below 25 is valid for func_8001B3E4 (the game\'s own test); a\n',
+    '       pending flag left set over an overwritten value (0xFF) is dropped instead of crashing in func_80010314. */\n',
+    '    if ((int32_t)ctx->r4 < 25) {\n',
+    '        func_8001B3E4(rdram, ctx);\n',
+    '    }\n',
+    '    else {\n',
+    '        static int wcw_pending_value_logged = 0;\n',
+    '        if (!wcw_pending_value_logged) {\n',
+    '            wcw_pending_value_logged = 1;\n',
+    '            fprintf(stderr, "[wcw] dropped a pending value %d at 0x8015C8E0 (#113)\\n", (int32_t)ctx->r4);\n',
+    '        }\n',
     '    }\n',
 ]
 
@@ -321,6 +363,27 @@ def main():
             applied.append('wcw-resync-null -> funcs_10.c func_80022CEC')
     else:
         applied.append('wcw-resync-null (already present)')
+
+    # [wcw fix] #113 pending value guard (see WCW_PENDING_VALUE_GUARD above): strip the older site in
+    # func_8010DD38 (back to the plain call), then guard func_8001B3E4's entry.
+    lines = load_lines('funcs_47.c')
+    old = next((i for i, l in enumerate(lines) if l.rstrip('\r\n') == WCW_PENDING_VALUE_OLD[0].rstrip('\n')), None)
+    if old is not None:
+        if [l.rstrip('\r\n') for l in lines[old:old + len(WCW_PENDING_VALUE_OLD)]] != [l.rstrip('\n') for l in WCW_PENDING_VALUE_OLD]:
+            failures.append('wcw-pending-value: the older guard in func_8010DD38 changed shape; strip it by hand')
+        else:
+            lines[old:old + len(WCW_PENDING_VALUE_OLD)] = ['    func_8001B3E4(rdram, ctx);\n']
+            save_lines('funcs_47.c', lines)
+            applied.append('removed old wcw-pending-value (func_8010DD38)')
+    lines = load_lines('funcs_9.c')
+    if not any('aki-roadmap#113: only a value' in l for l in lines):
+        ensure_include(lines, '#113 pending value guard log')
+        rng = body_range(lines, 'func_8001B3E4')
+        if insert_after(lines, rng, '    int c1cs = 0;', WCW_PENDING_VALUE_GUARD, 'wcw-pending-value'):
+            save_lines('funcs_9.c', lines)
+            applied.append('wcw-pending-value -> funcs_9.c func_8001B3E4 entry')
+    else:
+        applied.append('wcw-pending-value (already present)')
 
     # [wcw fix] widescreen cull (see WCW_CULL_EDIT above)
     lines = load_lines('funcs_1.c')

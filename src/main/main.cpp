@@ -862,6 +862,20 @@ static void aki_models_read(uint8_t* rdram, recomp_context* ctx) {
         return;
     }
 
+    // aki-roadmap#226: a conversion's aki.json slots, served as its models.txt.
+    std::string slots_text;
+    if ((path == "models.txt") && recomp::mods::active_conversion_models_txt(slots_text)) {
+        if (slots_text.size() > max) {
+            _return(ctx, int32_t(-2));
+            return;
+        }
+        for (size_t i = 0; i < slots_text.size(); i++) {
+            MEM_B(i, dest) = int8_t(slots_text[i]);
+        }
+        _return(ctx, int32_t(slots_text.size()));
+        return;
+    }
+
     std::error_code ec;
     std::filesystem::path file_path;
     const std::filesystem::path directory = models_directory();

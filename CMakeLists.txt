@@ -132,6 +132,16 @@ add_subdirectory(${CMAKE_SOURCE_DIR}/lib/RecompFrontend)
 # --- Main executable ---
 add_executable(NoMercyRecompiled)
 
+# [wcw fullconv] aki-roadmap#322: the music-pack decisions (src/main/music_policy.h), built and run before the game
+# links (a failing test fails the build, like the lib forks' suites); reruns only when the test binary changes.
+add_executable(nomercy_music_tests ${CMAKE_SOURCE_DIR}/tests/music_policy_tests.cpp)
+add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/nomercy_music_tests.passed
+    COMMAND nomercy_music_tests
+    COMMAND ${CMAKE_COMMAND} -E touch ${CMAKE_CURRENT_BINARY_DIR}/nomercy_music_tests.passed
+    DEPENDS nomercy_music_tests)
+add_custom_target(nomercy_music_tests_run DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/nomercy_music_tests.passed)
+add_dependencies(NoMercyRecompiled nomercy_music_tests_run)
+
 # App icon: exe resource (Windows title bar/taskbar/Explorer) + embedded PNG bytes for
 # the launcher thumbnail (GameEntry.thumbnail_bytes).
 add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/icon_bytes.c ${CMAKE_CURRENT_BINARY_DIR}/icon_bytes.h
@@ -157,6 +167,7 @@ if (WIN32)
 endif()
 set(SOURCES
     ${CMAKE_SOURCE_DIR}/src/main/main.cpp
+    ${CMAKE_SOURCE_DIR}/src/main/conversion_music.cpp
     ${CMAKE_SOURCE_DIR}/src/main/register_overlays.cpp
     ${REPAIRED_CPP}
     ${CMAKE_SOURCE_DIR}/src/game/recomp_api.cpp

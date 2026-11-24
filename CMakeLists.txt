@@ -132,6 +132,16 @@ add_subdirectory(${CMAKE_SOURCE_DIR}/lib/RecompFrontend)
 # --- Main executable ---
 add_executable(NoMercyRecompiled)
 
+# [wcw fullconv] aki-roadmap#322: the music-pack decisions (src/main/music_policy.h), built and run before the game
+# links (a failing test fails the build, like the lib forks' suites); reruns only when the test binary changes.
+add_executable(nomercy_music_tests ${CMAKE_SOURCE_DIR}/tests/music_policy_tests.cpp)
+add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/nomercy_music_tests.passed
+    COMMAND nomercy_music_tests
+    COMMAND ${CMAKE_COMMAND} -E touch ${CMAKE_CURRENT_BINARY_DIR}/nomercy_music_tests.passed
+    DEPENDS nomercy_music_tests)
+add_custom_target(nomercy_music_tests_run DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/nomercy_music_tests.passed)
+add_dependencies(NoMercyRecompiled nomercy_music_tests_run)
+
 # App icon: exe resource (Windows title bar/taskbar/Explorer) + embedded PNG bytes for
 # the launcher thumbnail (GameEntry.thumbnail_bytes).
 add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/icon_bytes.c ${CMAKE_CURRENT_BINARY_DIR}/icon_bytes.h
@@ -157,6 +167,7 @@ if (WIN32)
 endif()
 set(SOURCES
     ${CMAKE_SOURCE_DIR}/src/main/main.cpp
+    ${CMAKE_SOURCE_DIR}/src/main/conversion_music.cpp
     ${CMAKE_SOURCE_DIR}/src/main/register_overlays.cpp
     ${REPAIRED_CPP}
     ${CMAKE_SOURCE_DIR}/src/game/recomp_api.cpp
@@ -216,6 +227,10 @@ if (WIN32)
     # uses this PE default) reaches D3D12CreateDevice deep in its call stack, and that call
     # is very stack-hungry — on the default 1 MB it overflows (0xC0000409). 16 MB is safe.
     target_link_options(NoMercyRecompiled PRIVATE /STACK:16777216)
+    # [wcw fullconv] aki-roadmap#322: the conversion music pack decodes through Media Foundation, delay-loaded so a
+    # Windows without it (N editions) still starts the game (src/main/conversion_music.cpp probes it first).
+    target_link_libraries(NoMercyRecompiled PRIVATE mfplat.lib mfreadwrite.lib mfuuid.lib ole32.lib delayimp.lib)
+    target_link_options(NoMercyRecompiled PRIVATE /DELAYLOAD:mfplat.dll /DELAYLOAD:mfreadwrite.dll)
     # Copy SDL2 + dxc DLLs next to the exe.
     add_custom_command(TARGET NoMercyRecompiled POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy_if_different

@@ -41,6 +41,7 @@
 #include "librecomp/overlays.hpp"
 #include "librecomp/addresses.hpp" // recomp::alloc (conversion codes export)
 #include "ovl_patches.hpp"
+#include "conversion_music.h"
 #include "icon_bytes.h"
 #include "logo_bytes.h"
 #include "../../lib/RecompFrontend/recompui/src/elements/ui_image.h"
@@ -429,6 +430,19 @@ void set_frequency(uint32_t freq) {
 size_t get_frames_remaining();
 
 void queue_samples(int16_t* audio_data, size_t sample_count) {
+    // [wcw fullconv] aki-roadmap#322: the conversion's music pack (if it has one) follows the game's track from here.
+    {
+        static bool music_inited = false;
+        extern uint8_t* g_ww_rdram;
+        if (!music_inited && g_ww_rdram != nullptr) {
+            music_inited = true;
+            const std::string id = recomp::mods::session_conversion_id();
+            if (!id.empty()) {
+                conversion_music::init(recomp::get_config_path() / "music" / std::filesystem::u8path(id));
+            }
+        }
+        conversion_music::on_game_audio(g_ww_rdram);
+    }
     // audio_data is interleaved stereo; swap L/R to correct for endianness handling, and apply
     // Settings > Sound > Main Volume (0-100, linear like BMHero's; read per batch so the slider
     // takes effect immediately).

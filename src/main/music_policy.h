@@ -52,4 +52,28 @@ struct Follower {
 enum class Play { File, GameOwn };
 inline Play play_for(bool pack_has_file) { return pack_has_file ? Play::File : Play::GameOwn; }
 
+// The player's reads of one file: data, its end, or an error. A file that ends with no data since it last started (a
+// tag-only or empty mp3) or fails to read is stopped, not looped (review: rewinding it again would spin a core).
+enum class Read { Data, End, Error };
+enum class Next { Keep, Rewind, Stop };
+struct LoopGuard {
+    bool data = false;  // data since the file (re)started
+    void start() { data = false; }
+    Next on(Read r) {
+        if (r == Read::Data) { data = true; return Next::Keep; }
+        if (r == Read::End && data) { data = false; return Next::Rewind; }
+        return Next::Stop;
+    }
+};
+
+// The game's audio has stopped (paused, loading, closing) when no batch came for quiet_ms: the music pauses too.
+constexpr uint64_t kQuietMs = 250;
+inline bool game_quiet(uint64_t now_ms, uint64_t last_batch_ms) { return last_batch_ms == 0 || now_ms - last_batch_ms > kQuietMs; }
+
+// The pick handed from the game's audio thread to the player: track (-1 = none) and a serial in one word, so the player
+// never pairs one pick's track with another's serial (review: that restarted a track twice).
+inline uint64_t pack_pick(uint32_t serial, int track) { return (uint64_t(serial) << 32) | uint32_t(track + 1); }
+inline uint32_t pick_serial(uint64_t p) { return uint32_t(p >> 32); }
+inline int pick_track(uint64_t p) { return int(uint32_t(p)) - 1; }
+
 }  // namespace music_policy

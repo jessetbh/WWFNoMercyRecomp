@@ -226,7 +226,11 @@ if (WIN32)
     # Bump the default thread stack reserve: ultramodern's gfx_thread (a std::thread, which
     # uses this PE default) reaches D3D12CreateDevice deep in its call stack, and that call
     # is very stack-hungry — on the default 1 MB it overflows (0xC0000409). 16 MB is safe.
-    target_link_options(NoMercyRecompiled PRIVATE /STACK:16777216)
+    target_link_options(NoMercyRecompiled PRIVATE /STACK:16777216)
+    # [wcw fullconv] aki-roadmap#322: the conversion music pack decodes through Media Foundation, delay-loaded so a
+    # Windows without it (N editions) still starts the game (src/main/conversion_music.cpp probes it first).
+    target_link_libraries(NoMercyRecompiled PRIVATE mfplat.lib mfreadwrite.lib mfuuid.lib ole32.lib delayimp.lib)
+    target_link_options(NoMercyRecompiled PRIVATE /DELAYLOAD:mfplat.dll /DELAYLOAD:mfreadwrite.dll)
     # Copy SDL2 + dxc DLLs next to the exe.
     add_custom_command(TARGET NoMercyRecompiled POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy_if_different

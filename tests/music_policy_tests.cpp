@@ -44,6 +44,29 @@ int main() {
     CHECK(play_for(true) == Play::File);
     CHECK(play_for(false) == Play::GameOwn);
 
+    // a file loops at its end, but one that ends with no data, or fails, stops (no spinning)
+    LoopGuard g;
+    g.start();
+    CHECK(g.on(Read::Data) == Next::Keep);
+    CHECK(g.on(Read::End) == Next::Rewind);
+    CHECK(g.on(Read::Data) == Next::Keep);
+    CHECK(g.on(Read::End) == Next::Rewind);
+    CHECK(g.on(Read::End) == Next::Stop);     // rewound, then ended again with nothing
+    g.start();
+    CHECK(g.on(Read::End) == Next::Stop);     // a tag-only file
+    g.start();
+    CHECK(g.on(Read::Data) == Next::Keep);
+    CHECK(g.on(Read::Error) == Next::Stop);   // a read error mid-file
+
+    CHECK(game_quiet(1000, 0));               // no batch yet
+    CHECK(!game_quiet(1000, 900));
+    CHECK(!game_quiet(1000, 1000 - kQuietMs));
+    CHECK(game_quiet(1000, 1000 - kQuietMs - 1));
+
+    CHECK(pick_track(pack_pick(7, -1)) == -1 && pick_serial(pack_pick(7, -1)) == 7);
+    CHECK(pick_track(pack_pick(0xFFFFFFFFu, 79)) == 79 && pick_serial(pack_pick(0xFFFFFFFFu, 79)) == 0xFFFFFFFFu);
+    CHECK(pick_track(pack_pick(3, 0)) == 0);
+
     std::printf("[music policy tests] %d tests, %d failed\n", run, failed);
     return failed ? 1 : 0;
 }

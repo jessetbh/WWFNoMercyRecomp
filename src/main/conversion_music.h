@@ -1,5 +1,5 @@
 #pragma once
-// [wcw fullconv] aki-roadmap#322: plays the active conversion's music pack (<conversion>/music/0x<track>.mp3, the
+// [wcw fullconv] aki-roadmap#322: plays the active conversion's music pack (<config>/music/<id>/0x<track>.mp3, the
 // player's own files) in place of the hack community's external "music tool". See music_policy.h for the contract.
 #include <cstdint>
 #include <filesystem>

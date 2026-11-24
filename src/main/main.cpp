@@ -438,7 +438,7 @@ void queue_samples(int16_t* audio_data, size_t sample_count) {
             music_inited = true;
             const std::string id = recomp::mods::session_conversion_id();
             if (!id.empty()) {
-                conversion_music::init(recomp::get_config_path() / "conversions" / std::filesystem::u8path(id) / "music");
+                conversion_music::init(recomp::get_config_path() / "music" / std::filesystem::u8path(id));
             }
         }
         conversion_music::on_game_audio(g_ww_rdram);

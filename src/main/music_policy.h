@@ -54,13 +54,14 @@ inline Play play_for(bool pack_has_file) { return pack_has_file ? Play::File : P
 
 // The player's reads of one file: data, its end, or an error. A file that ends with no data since it last started (a
 // tag-only or empty mp3) or fails to read is stopped, not looped (review: rewinding it again would spin a core).
-enum class Read { Data, End, Error };
+enum class Read { Data, Gap, End, Error };  // Gap: a read with no samples (neither data nor the end)
 enum class Next { Keep, Rewind, Stop };
 struct LoopGuard {
     bool data = false;  // data since the file (re)started
     void start() { data = false; }
     Next on(Read r) {
         if (r == Read::Data) { data = true; return Next::Keep; }
+        if (r == Read::Gap) return Next::Keep;  // doesn't count as data: a file of only gaps then its end stops
         if (r == Read::End && data) { data = false; return Next::Rewind; }
         return Next::Stop;
     }

@@ -57,6 +57,9 @@ int main() {
     g.start();
     CHECK(g.on(Read::Data) == Next::Keep);
     CHECK(g.on(Read::Error) == Next::Stop);   // a read error mid-file
+    g.start();
+    CHECK(g.on(Read::Gap) == Next::Keep);
+    CHECK(g.on(Read::End) == Next::Stop);     // only gaps, then the end: not looped forever
 
     CHECK(game_quiet(1000, 0));               // no batch yet
     CHECK(!game_quiet(1000, 900));

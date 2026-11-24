@@ -90,7 +90,7 @@ struct Reader {
         if (FAILED(r->ReadSample((DWORD)MF_SOURCE_READER_FIRST_AUDIO_STREAM, 0, nullptr, &flags, nullptr, &s))) return music_policy::Read::Error;
         if (flags & MF_SOURCE_READERF_ERROR) { if (s) s->Release(); return music_policy::Read::Error; }
         if (flags & MF_SOURCE_READERF_ENDOFSTREAM) { if (s) s->Release(); return music_policy::Read::End; }
-        if (!s) return music_policy::Read::Data;  // a gap: nothing this time, not the end
+        if (!s) return music_policy::Read::Gap;  // a gap: nothing this time, not the end
         bool got = false;
         IMFMediaBuffer* b = nullptr;
         if (SUCCEEDED(s->ConvertToContiguousBuffer(&b))) {
@@ -106,7 +106,7 @@ struct Reader {
             b->Release();
         }
         s->Release();
-        return got ? music_policy::Read::Data : music_policy::Read::Error;
+        return got ? music_policy::Read::Data : music_policy::Read::Gap;
     }
 };
 
